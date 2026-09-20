@@ -29,6 +29,57 @@ def _metrics(benchmark: dict[str, Any], variant: str = "baseline") -> dict[str, 
     return benchmark["variants"][variant]["report"]
 
 
+def _passed_scenario_ids(checks: dict[str, Any]) -> set[str]:
+    """Return only explicitly passed scenario IDs from a complete check record."""
+
+    details = checks.get("details")
+    if not isinstance(details, list):
+        return set()
+    return {
+        item.get("scenario_name", item["scenario_id"])
+        for item in details
+        if isinstance(item, dict)
+        and isinstance(item.get("scenario_id"), str)
+        and item.get("passed") is True
+    }
+
+
+def _causal_checks_passed(verification: dict[str, Any]) -> bool:
+    """Accept causal evidence only when the executable check result is internally complete."""
+
+    checks = verification.get("checks")
+    if (
+        not isinstance(checks, dict)
+        or not checks
+        or not all(isinstance(value, bool) for value in checks.values())
+    ):
+        return False
+    passed = sum(checks.values())
+    return (
+        verification.get("all_passed") is True
+        and verification.get("passed") == passed
+        and verification.get("total") == len(checks)
+        and passed == len(checks)
+    )
+
+
+def _render_blocker(blocker: str) -> str:
+    labels = {
+        "missing:all_19_types_covered": "не подтверждён охват всех 19 типов",
+        "missing:all_7_groups_covered": "не подтверждён охват всех 7 групп",
+        "missing:synthetic_protocol_covered": "не все сценарии прошли в обоих наборах",
+        "missing:real_examples_reviewed": "недостаточно разобранных реальных примеров",
+        "missing:causal_checks_passed": "не пройдены исполняемые причинные проверки",
+        "missing:reproducible_run_available": "нет согласованных воспроизводимых артефактов",
+        "missing:temporal_protocol_frozen": "не подтверждён зафиксированный временной протокол",
+        "missing:candidates_traceable": "не все реальные кандидаты прослеживаемы",
+        "missing:full_history_candidate_catalog": "не построен полный исторический каталог кандидатов",
+        "missing:candidate_diversity_sufficient": "недостаточно разнообразия кандидатов",
+        "missing:external_validation_available": "нет независимой внешней проверки",
+    }
+    return labels.get(blocker, blocker)
+
+
 def build_report() -> dict[str, Any]:
     catalog = _read(ROOT / "output" / "stage1" / "baseline_catalog.json")
     examples = _read(ROOT / "output" / "stage1" / "real_examples.json")
@@ -38,14 +89,14 @@ def build_report() -> dict[str, Any]:
     holdout_metrics = _metrics(holdout)
     tuning_checks = tuning.get("scenario_checks", {})
     holdout_checks = holdout.get("scenario_checks", {})
-    scenario_count = min(int(tuning_checks.get("passed", 0)), int(holdout_checks.get("passed", 0)))
+    scenario_count = len(_passed_scenario_ids(tuning_checks) & _passed_scenario_ids(holdout_checks))
     reproducibility_files = (
         ROOT / "docs" / "stage1-reproducibility.md",
         ROOT / "output" / "stage1" / "normalized_sample.manifest.json",
         ROOT / "output" / "stage1" / "synthetic_benchmark.json",
     )
     causal_verification = verify_causal_invariants()
-    causal_checks_passed = bool(causal_verification["all_passed"])
+    causal_checks_passed = _causal_checks_passed(causal_verification)
     reproducible_run_available = bool(
         all(path.exists() for path in reproducibility_files)
         and catalog.get("ruleset") == examples.get("ruleset") == RULESET_VERSION
@@ -53,6 +104,9 @@ def build_report() -> dict[str, Any]:
         == sum(len(record.get("detector_results", ())) for record in catalog["records"])
         and tuning.get("inputs", {}).get("simulation_version")
         == holdout.get("inputs", {}).get("simulation_version")
+        and tuning.get("inputs", {}).get("ruleset_version")
+        == holdout.get("inputs", {}).get("ruleset_version")
+        == RULESET_VERSION
         and tuning_checks.get("executed") == tuning_checks.get("total") == 9
         and holdout_checks.get("executed") == holdout_checks.get("total") == 9
     )
@@ -169,10 +223,12 @@ def render(result: dict[str, Any]) -> str:
     synthetic = result["synthetic"]
     tuning = synthetic["tuning_baseline"]
     holdout = synthetic["holdout_baseline"]
+    blockers = [_render_blocker(blocker) for blocker in result["readiness"]["blockers"]]
+    blocker_text = "; ".join(blockers) if blockers else "неуказанные проверки"
     decision_text = (
         "**Методический этап завершён. Переход к обучению реального прогноза пока требует доработки.**"
         if result["readiness"]["stage_complete"]
-        else "**После ревью методический этап ещё не закрыт: tuning проходит не все замороженные сценарии.**"
+        else f"**Методический этап ещё не закрыт: {blocker_text}.**"
     )
     return f"""# Итог первого этапа и первой недели
 
@@ -234,19 +290,11 @@ p90 — {holdout["delay_seconds_p90"] / 3600:.2f} ч. На tuning F1 равен
 
 ## Почему следующий этап пока не готов
 
-- Не построен полный исторический каталог кандидатов: текущий результат основан на
-  адресной выборке 38 каналов.
-- Разнообразие и число реальных кандидатов ещё недостаточны для временной прогнозной
-  разметки.
-- Нет независимой экспертной или эксплуатационной проверки физических отказов.
-- Неизвестны режим регистрации, единицы части числовых сообщений и исторические
-  замены каналов.
-- Нет подтверждённой связи `канал → объект`, поэтому реальный общий контекст отключён.
-- Tuning и holdout показывают недостаточную точность multi-episode baseline.
+{chr(10).join(f"- {blocker}" for blocker in blockers)}
 
 ## Что делать дальше
 
-1. Разобрать 39 tuning-FP по причинам и каналам; проверить причинный rolling-профиль,
+1. Разобрать {tuning["false_positives"]} tuning-FP по причинам и каналам; проверить причинный rolling-профиль,
    пороги повторного предупреждения и устойчивость без доступа к holdout.
 2. Настраивать правила только на tuning; после фиксации следующей версии создать
    новый заранее отложенный набор, поскольку текущий holdout уже просмотрен.

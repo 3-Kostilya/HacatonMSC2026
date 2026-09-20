@@ -17,7 +17,7 @@ from stage1.contracts import Decision, Episode, NormalizedEvent
 from stage1.normalization import CHANNEL_TIME_CONFLICT, INVALID_TIMESTAMP, NONFINITE_NUMERIC
 
 
-RULESET_VERSION = "stage1-baseline-v2"
+RULESET_VERSION = "stage1-baseline-v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -531,8 +531,6 @@ def detect_numeric_level_shifts(
     cfg = config or NumericDetectorConfig()
     ordered = _ordered_single_channel(events)
     first = detect_numeric_level_shift(ordered, cfg)
-    if first.decision is not Decision.CANDIDATE:
-        return [first]
 
     baseline, evaluation, invalid = _numeric_history(ordered, cfg)
     if invalid is not None:
@@ -542,17 +540,20 @@ def detect_numeric_level_shifts(
     threshold = cfg.zero_mad_absolute_delta if mad == 0 else cfg.mad_multiplier * mad
     run: list[NormalizedEvent] = []
     direction = 0
+    active_direction = 0
     active: Episode | None = None
     emitted: list[Episode] = []
     for event in evaluation:
         if _blocking_flags((event,), cfg.blocking_quality_flags):
-            if active is not None:
-                emitted.append(active)
-            break
+            # A bad observation cannot confirm that a physical level returned
+            # to baseline.  It also cannot extend a sustained run, so retain
+            # a confirmed episode but require fresh valid points afterwards.
+            run = []
+            direction = 0
+            continue
         if event.numeric_value is None:
-            if active is not None:
-                emitted.append(replace(active, end_at=event.timestamp))
-                active = None
+            # Text/status records carry no physical numeric measurement and
+            # therefore cannot close an active level-shift episode.
             run = []
             direction = 0
             continue
@@ -562,13 +563,15 @@ def detect_numeric_level_shifts(
             if active is not None:
                 emitted.append(replace(active, end_at=event.timestamp))
                 active = None
+                active_direction = 0
             run = []
             direction = 0
             continue
         if current != direction:
-            if active is not None:
+            if active is not None and current != active_direction:
                 emitted.append(replace(active, end_at=event.timestamp))
                 active = None
+                active_direction = 0
             run = [event]
             direction = current
         else:
@@ -592,6 +595,7 @@ def detect_numeric_level_shifts(
                 cause="local_or_environmental",
                 metadata={"baseline_end_at": baseline[-1].timestamp.isoformat(sep=" ")},
             )
+            active_direction = direction
     if active is not None:
         emitted.append(active)
     return emitted or [first]
@@ -615,25 +619,46 @@ def detect_discrete_patterns(
         if result.decision is not Decision.CANDIDATE:
             break
         later = [event for event in remaining if event.timestamp > result.confirmed_at]
+
+        def valid_recovery_observation(event: NormalizedEvent) -> bool:
+            return not _blocking_flags((event,), cfg.blocking_quality_flags) and (
+                cfg.known_states is None or event.raw_value in cfg.known_states
+            )
+
         recovery = next(
             (
                 event
                 for event in later
                 if result.anomaly_type == "repeated_state_burst"
+                and valid_recovery_observation(event)
                 and not any(item == f"state={event.raw_value}" for item in result.evidence)
             ),
             None,
         )
         if result.anomaly_type == "rapid_switching":
-            previous_value = next(
+            previous_value: str | None = next(
                 event.raw_value for event in ordered if event.timestamp == result.confirmed_at
             )
-            last_transition = result.confirmed_at
+            last_transition: datetime | None = result.confirmed_at
             for event in later:
+                if not valid_recovery_observation(event):
+                    # A gap with unusable state information cannot establish a
+                    # quiet switching interval.  Start a new observable quiet
+                    # interval from the next valid state instead.
+                    previous_value = None
+                    last_transition = None
+                    continue
+                if previous_value is None:
+                    previous_value = event.raw_value
+                    last_transition = event.timestamp
+                    continue
                 if event.raw_value != previous_value:
                     last_transition = event.timestamp
                 previous_value = event.raw_value
-                if event.timestamp - last_transition > cfg.transition_window:
+                if (
+                    last_transition is not None
+                    and event.timestamp - last_transition > cfg.transition_window
+                ):
                     recovery = event
                     break
         emitted.append(replace(result, end_at=recovery.timestamp) if recovery else result)

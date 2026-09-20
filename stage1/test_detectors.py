@@ -11,6 +11,7 @@ from stage1.detectors import (
     detect_discrete_pattern,
     detect_discrete_patterns,
     detect_numeric_level_shift,
+    detect_numeric_level_shifts,
 )
 from stage1.normalization import CHANNEL_TIME_CONFLICT, iter_accepted, normalize_chunks
 
@@ -162,6 +163,41 @@ class NumericDetectorTests(unittest.TestCase):
         self.assertIs(episode.decision, Decision.UNKNOWN)
         self.assertIn(f"blocking_quality:{CHANNEL_TIME_CONFLICT}", episode.observation_quality)
 
+    def test_sequence_keeps_one_active_episode_across_blocked_record_and_recovers_later(self):
+        events = numeric_events([10] * 5 + [20] * 3 + [10, 10] + [20] * 3)
+        events[8] = replace(events[8], quality_flags=(CHANNEL_TIME_CONFLICT,))
+        episodes = detect_numeric_level_shifts(events, self.config)
+        self.assertEqual(len(episodes), 2)
+        self.assertEqual(episodes[0].start_at, BASE + timedelta(minutes=5))
+        self.assertEqual(episodes[0].end_at, BASE + timedelta(minutes=9))
+        self.assertEqual(episodes[1].start_at, BASE + timedelta(minutes=10))
+
+    def test_blocked_record_does_not_close_active_numeric_level(self):
+        events = numeric_events([10] * 5 + [20] * 3 + [10] + [20] * 3)
+        events[8] = replace(events[8], quality_flags=(CHANNEL_TIME_CONFLICT,))
+        episodes = detect_numeric_level_shifts(events, self.config)
+        self.assertEqual(len(episodes), 1)
+        self.assertIsNone(episodes[0].end_at)
+
+    def test_text_record_does_not_close_numeric_episode(self):
+        events = numeric_events([10] * 5 + [20] * 3 + [10])
+        events[-1] = replace(events[-1], timestamp=BASE + timedelta(minutes=9))
+        events.insert(
+            8,
+            NormalizedEvent(
+                channel_id="n-1",
+                timestamp=BASE + timedelta(minutes=8),
+                raw_value="status",
+                numeric_value=None,
+                alarm=False,
+                sensor_type="Датчик температуры",
+                source="synthetic",
+            ),
+        )
+        episodes = detect_numeric_level_shifts(events, self.config)
+        self.assertEqual(len(episodes), 1)
+        self.assertEqual(episodes[0].end_at, BASE + timedelta(minutes=9))
+
 
 class DiscreteDetectorTests(unittest.TestCase):
     def setUp(self):
@@ -309,6 +345,60 @@ class DiscreteDetectorTests(unittest.TestCase):
         self.assertEqual(len(episodes), 2)
         self.assertIsNotNone(episodes[0].end_at)
         self.assertIsNone(episodes[1].end_at)
+
+    def test_invalid_observations_do_not_recover_repeated_state_burst(self):
+        events = discrete_events(["normal", "alarm", "normal", "alarm", "alarm", "alarm", "alarm"])
+        events.append(
+            replace(
+                events[-1],
+                timestamp=BASE + timedelta(minutes=7),
+                raw_value="normal",
+                quality_flags=(CHANNEL_TIME_CONFLICT,),
+            )
+        )
+        events.append(
+            replace(
+                events[-1],
+                timestamp=BASE + timedelta(minutes=8),
+                raw_value="???",
+                quality_flags=(),
+            )
+        )
+        episodes = detect_discrete_patterns(events, self.config)
+        self.assertEqual(len(episodes), 1)
+        self.assertIsNone(episodes[0].end_at)
+
+    def test_invalid_observations_do_not_recover_rapid_switching(self):
+        config = replace(self.config, repeated_state_count=5)
+        events = discrete_events(["normal"] * 4 + ["alarm", "normal", "alarm", "normal"])
+        events.extend(
+            replace(
+                events[-1],
+                timestamp=BASE + timedelta(minutes=minute),
+                raw_value="???" if minute == 20 else "normal",
+                quality_flags=() if minute == 20 else (CHANNEL_TIME_CONFLICT,),
+            )
+            for minute in (10, 20)
+        )
+        episodes = detect_discrete_patterns(events, config)
+        self.assertEqual(len(episodes), 1)
+        self.assertIsNone(episodes[0].end_at)
+
+    def test_rapid_switching_requires_new_quiet_interval_after_invalid_observation(self):
+        config = replace(self.config, repeated_state_count=5)
+        events = discrete_events(["normal"] * 4 + ["alarm", "normal", "alarm", "normal"])
+        events.extend(
+            replace(
+                events[-1],
+                timestamp=BASE + timedelta(minutes=minute),
+                raw_value="normal",
+                quality_flags=(CHANNEL_TIME_CONFLICT,) if minute == 20 else (),
+            )
+            for minute in (9, 20, 30)
+        )
+        episodes = detect_discrete_patterns(events, config)
+        self.assertEqual(len(episodes), 1)
+        self.assertIsNone(episodes[0].end_at)
 
 
 class ContextDetectorTests(unittest.TestCase):

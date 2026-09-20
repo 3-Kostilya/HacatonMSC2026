@@ -28,6 +28,34 @@ def _cause_key(episode: Episode) -> tuple[str, str, str, str]:
     )
 
 
+def _merged_end_at(previous: Episode, current: Episode) -> datetime | None:
+    """Combine known ends without inventing a recovery for an open component."""
+
+    if previous.end_at is None or current.end_at is None:
+        # An open component means that the merged episode's end is unknown.
+        return None
+    return max(previous.end_at, current.end_at)
+
+
+def _last_confirmed_at(previous: Episode, current: Episode) -> datetime:
+    """Keep the greatest confirmation timestamp from both input components."""
+
+    values = [previous.confirmed_at, current.confirmed_at]
+    for component in (previous, current):
+        recorded = component.metadata.get("last_confirmed_at")
+        if isinstance(recorded, datetime):
+            if recorded.tzinfo is None:
+                values.append(recorded)
+        elif isinstance(recorded, str):
+            try:
+                parsed = datetime.fromisoformat(recorded)
+            except ValueError:
+                parsed = None
+            if parsed is not None and parsed.tzinfo is None:
+                values.append(parsed)
+    return max(values)
+
+
 def consolidate_episodes(
     detections: Iterable[Episode],
     *,
@@ -65,16 +93,15 @@ def consolidate_episodes(
                 metadata["merged_detection_count"] = int(
                     metadata.get("merged_detection_count", 1)
                 ) + int(episode.metadata.get("merged_detection_count", 1))
-                metadata["last_confirmed_at"] = max(
-                    previous.confirmed_at, episode.confirmed_at
-                ).isoformat(sep=" ")
+                metadata["last_confirmed_at"] = _last_confirmed_at(previous, episode).isoformat(
+                    sep=" "
+                )
                 merged[-1] = replace(
                     previous,
                     confirmed_at=min(previous.confirmed_at, episode.confirmed_at),
-                    # The chronologically latest component controls whether the
-                    # merged episode is still active.  A later open recurrence
-                    # must not inherit an earlier recovery timestamp.
-                    end_at=episode.end_at,
+                    # Any open component keeps the merged episode's end unknown;
+                    # a known end cannot establish recovery for another component.
+                    end_at=_merged_end_at(previous, episode),
                     evidence=evidence,
                     observation_quality=quality,
                     score=max(

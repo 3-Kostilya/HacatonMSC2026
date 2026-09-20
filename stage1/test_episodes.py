@@ -105,6 +105,45 @@ class EpisodeAggregationTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertIsNone(result[0].end_at)
 
+    def test_overlapping_closed_recurrence_keeps_later_known_end(self):
+        first = candidate(0)
+        first = replace(first, end_at=BASE + timedelta(minutes=10))
+        second = replace(candidate(5), end_at=BASE + timedelta(minutes=7))
+        result = consolidate_episodes(
+            [first, second],
+            config=EpisodeAggregationConfig(merge_gap=timedelta(minutes=5)),
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].end_at, BASE + timedelta(minutes=10))
+
+    def test_merge_preserves_later_last_confirmed_metadata(self):
+        first = replace(
+            candidate(0),
+            metadata={"last_confirmed_at": (BASE + timedelta(minutes=20)).isoformat(sep=" ")},
+        )
+        result = consolidate_episodes(
+            [first, candidate(5)],
+            config=EpisodeAggregationConfig(merge_gap=timedelta(minutes=5)),
+        )
+        self.assertEqual(
+            result[0].metadata["last_confirmed_at"],
+            (BASE + timedelta(minutes=20)).isoformat(sep=" "),
+        )
+
+    def test_merge_preserves_current_aggregate_last_confirmed_metadata(self):
+        current = replace(
+            candidate(5),
+            metadata={"last_confirmed_at": (BASE + timedelta(minutes=20)).isoformat(sep=" ")},
+        )
+        result = consolidate_episodes(
+            [candidate(0), current],
+            config=EpisodeAggregationConfig(merge_gap=timedelta(minutes=5)),
+        )
+        self.assertEqual(
+            result[0].metadata["last_confirmed_at"],
+            (BASE + timedelta(minutes=20)).isoformat(sep=" "),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

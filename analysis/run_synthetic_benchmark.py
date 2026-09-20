@@ -19,6 +19,7 @@ from stage1.contracts import Decision, NormalizedEvent, Origin  # noqa: E402
 from stage1.detectors import (  # noqa: E402
     DiscreteDetectorConfig,
     NumericDetectorConfig,
+    RULESET_VERSION,
 )
 from stage1.evaluation import EvaluationInterval, TruthEpisode, compare_variants  # noqa: E402
 from stage1.pipeline import evaluate_channel  # noqa: E402
@@ -223,29 +224,67 @@ def check_scenarios(by_scenario, manifest, episodes):
         scenario_id = scenario["scenario_id"]
         applicability = scenario["detector_applicability"]
         scenario_episodes = by_id.get(scenario_id, [])
-        candidate = next(
-            (episode for episode in scenario_episodes if episode.decision is Decision.CANDIDATE),
-            None,
+        candidates = [
+            episode for episode in scenario_episodes if episode.decision is Decision.CANDIDATE
+        ]
+        cadence_seconds = scenario.get("expected_cadence_seconds")
+        intervention_start = datetime.fromisoformat(scenario["intervention_start"])
+        evaluation_end = datetime.fromisoformat(scenario["end"])
+        match_end = evaluation_end + timedelta(seconds=cadence_seconds or 0)
+        timely_candidates = [
+            episode
+            for episode in candidates
+            if intervention_start <= episode.confirmed_at < match_end
+        ]
+        actual = (
+            ",".join(episode.decision.value for episode in scenario_episodes)
+            if scenario_episodes
+            else "not_executed"
         )
-        representative = candidate or (scenario_episodes[0] if scenario_episodes else None)
         observability = None
         if applicability.startswith("observability_only"):
             outcome = evaluate_channel(by_scenario[scenario_id], expected_cadence=None)
             observability = outcome.observability.status.value
-            passed = observability == "unknown" and representative is not None and candidate is None
-            actual = f"observability={observability};detector={representative.decision.value if representative else 'missing'}"
+            passed = observability == "unknown" and bool(scenario_episodes) and not candidates
         else:
             expected = scenario["expected_detector_behavior"]
-            if expected == "single_common_context_candidate":
-                expected = "candidate"
-            actual = representative.decision.value if representative is not None else "not_executed"
-            passed = actual == expected
+            if expected in {"candidate", "single_common_context_candidate"}:
+                passed = len(candidates) == len(timely_candidates) == 1
+            elif expected == "no_candidate":
+                passed = bool(scenario_episodes) and all(
+                    episode.decision is Decision.NO_CANDIDATE for episode in scenario_episodes
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported expected detector behavior for {scenario_id!r}: {expected!r}"
+                )
         checks.append(
             {
                 "scenario_id": scenario_id,
+                "scenario_name": scenario.get("scenario_name", scenario_id),
                 "applicability": applicability,
                 "expected": scenario["expected_detector_behavior"],
                 "actual": actual,
+                "episode_count": len(scenario_episodes),
+                "candidate_count": len(candidates),
+                "timely_candidate_count": len(timely_candidates),
+                "candidate_confirmed_at": [
+                    episode.confirmed_at.isoformat(sep=" ") for episode in candidates
+                ],
+                "expected_candidate_interval": {
+                    "start_at": intervention_start.isoformat(sep=" "),
+                    "end_at_exclusive": match_end.isoformat(sep=" "),
+                },
+                "episodes": [
+                    {
+                        "episode_id": episode.episode_id,
+                        "decision": episode.decision.value,
+                        "start_at": episode.start_at.isoformat(sep=" "),
+                        "confirmed_at": episode.confirmed_at.isoformat(sep=" "),
+                    }
+                    for episode in scenario_episodes
+                ],
+                "observability": observability,
                 "passed": passed,
             }
         )
@@ -275,6 +314,7 @@ def build_benchmark(events_path: Path, truth_path: Path) -> dict[str, Any]:
     result["scenario_checks"] = baseline_checks
     result["inputs"] = {
         "simulation_version": manifest["simulation_version"],
+        "ruleset_version": RULESET_VERSION,
         "suite": manifest["suite"],
         "seed": manifest["seed"],
         "scenarios_declared": len(manifest["scenarios"]),
