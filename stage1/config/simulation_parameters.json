@@ -1,0 +1,46 @@
+{
+  "simulation_version": "stage1-simulation-v1",
+  "frozen_at": "2026-09-19",
+  "seed": 260919,
+  "minimum_clean_prefix_seconds": 604800,
+  "source": "frozen_synthetic_generator",
+  "suites": {
+    "tuning": {
+      "segment_start": "2025-03-01 00:00:00",
+      "numeric_cadence_seconds": 3600,
+      "discrete_cadence_seconds": 21600,
+      "parameters": {
+        "drift_per_step_sigma": 0.10,
+        "variance_multiplier": 2.5,
+        "level_shift_sigma": 3.0,
+        "spike_sigma": 7.0,
+        "rapid_switch_seconds": 240,
+        "gap_seconds": 172800,
+        "outage_channel_count": 3
+      }
+    },
+    "synthetic_holdout": {
+      "segment_start": "2026-03-01 00:00:00",
+      "numeric_cadence_seconds": 2700,
+      "discrete_cadence_seconds": 14400,
+      "parameters": {
+        "drift_per_step_sigma": 0.14,
+        "variance_multiplier": 3.2,
+        "level_shift_sigma": 4.0,
+        "spike_sigma": 8.5,
+        "rapid_switch_seconds": 150,
+        "gap_seconds": 259200,
+        "outage_channel_count": 4
+      }
+    }
+  },
+  "declared_ranges": {
+    "drift_per_step_sigma": [0.08, 0.16],
+    "variance_multiplier": [2.0, 3.5],
+    "level_shift_sigma": [2.5, 4.5],
+    "spike_sigma": [6.0, 9.0],
+    "rapid_switch_seconds": [120, 300],
+    "gap_seconds": [172800, 345600],
+    "outage_channel_count": [3, 5]
+  }
+}

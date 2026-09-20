@@ -1,0 +1,80 @@
+{
+  "protocol_version": "stage1-eval-v1",
+  "frozen_at": "2026-09-19",
+  "time_semantics": {
+    "timezone": "journal_local_naive",
+    "intervals": "half_open_[start,end)",
+    "causal_rule": "a decision at t may use only records with timestamp <= t"
+  },
+  "splits": [
+    {
+      "name": "development",
+      "start": "2024-01-01 00:00:00",
+      "end": "2025-01-01 00:00:00",
+      "allowed_use": ["implementation", "feature_design", "debugging"]
+    },
+    {
+      "name": "tuning",
+      "start": "2025-01-01 00:00:00",
+      "end": "2025-07-01 00:00:00",
+      "allowed_use": ["threshold_selection", "ruleset_selection"]
+    },
+    {
+      "name": "retrospective",
+      "start": "2025-07-01 00:00:00",
+      "end": "2026-01-01 00:00:00",
+      "allowed_use": ["frozen_ruleset_evaluation"]
+    },
+    {
+      "name": "synthetic_holdout",
+      "start": "2026-01-01 00:00:00",
+      "end": "2026-07-01 00:00:00",
+      "allowed_use": ["frozen_synthetic_evaluation"]
+    }
+  ],
+  "rolling_windows_seconds": {
+    "1h": 3600,
+    "6h": 21600,
+    "24h": 86400,
+    "7d": 604800
+  },
+  "synthetic_holdout": {
+    "seed": 260919,
+    "parameter_selection": "sample once from the declared scenario ranges before reading results",
+    "source_segments": "eligible stable segments selected causally inside synthetic_holdout only",
+    "minimum_clean_prefix_seconds": 604800,
+    "scenarios": [
+      "numeric_gradual_drift",
+      "numeric_variance_increase",
+      "numeric_level_shift",
+      "numeric_single_spike_control",
+      "discrete_rapid_switching",
+      "discrete_ordinary_cycle_control",
+      "single_alarm_control",
+      "missingness_unknown_control",
+      "common_outage_context"
+    ]
+  },
+  "matching": {
+    "scope_keys": ["channel_id", "scenario_id"],
+    "eligible_warning_interval": "[episode_start, episode_end + one_expected_cadence]",
+    "assignment": "greedy_by_episode_start_then_earliest_unmatched_warning",
+    "duplicate_warning": "false_positive",
+    "unmatched_warning": "false_positive",
+    "unmatched_episode": "false_negative",
+    "unknown_interval": "not_scored_as_negative_and_reported_separately"
+  },
+  "metrics": [
+    "episode_precision",
+    "episode_recall",
+    "episode_f1",
+    "false_warnings_per_channel_day",
+    "detection_delay_seconds_median",
+    "detection_delay_seconds_p90",
+    "included_channel_interval_fraction",
+    "unknown_channel_interval_fraction",
+    "excluded_channel_interval_fraction",
+    "scenario_recall",
+    "sensor_type_coverage"
+  ]
+}

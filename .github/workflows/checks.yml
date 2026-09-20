@@ -1,0 +1,27 @@
+name: Python checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements*.txt
+            ml/smoke_failure/requirements.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -X utf8 -m unittest discover -s ml/smoke_failure -p "test_*.py" -v
+      - run: python -X utf8 -m unittest discover -s stage1 -p "test_*.py" -v
+      - run: python -X utf8 -m unittest discover -s analysis -p "test_*.py" -v
