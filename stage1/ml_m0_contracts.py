@@ -7,6 +7,7 @@ define the stable keys, provenance, nullability and local-time convention.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import math
 
 import pyarrow as pa
 
@@ -140,6 +141,7 @@ FORBIDDEN_ML_FEATURES = frozenset(
 
 def in_feature_window(timestamp: datetime, as_of: datetime, hours: int) -> bool:
     """A feature window is left-open and right-closed: (t-W, t]."""
+    _require_local_times(timestamp, as_of)
     if hours <= 0:
         raise ValueError("hours must be positive")
     return as_of - timedelta(hours=hours) < timestamp <= as_of
@@ -147,9 +149,15 @@ def in_feature_window(timestamp: datetime, as_of: datetime, hours: int) -> bool:
 
 def in_future_window(start_at: datetime, as_of: datetime, hours: int) -> bool:
     """A target onset window is left-open and right-closed: (t, t+H]."""
+    _require_local_times(start_at, as_of)
     if hours <= 0:
         raise ValueError("hours must be positive")
     return as_of < start_at <= as_of + timedelta(hours=hours)
+
+
+def _require_local_times(*values: datetime) -> None:
+    if any(not isinstance(value, datetime) or value.tzinfo is not None for value in values):
+        raise ValueError("timestamps must use the journal's local naive time")
 
 
 def validate_table(name: str, table: pa.Table) -> None:
@@ -167,6 +175,18 @@ def validate_table(name: str, table: pa.Table) -> None:
         seen.add(key)
         if row["schema_version"] != CONTRACT_VERSION:
             raise ValueError(f"{name}: unexpected schema version")
+        for field in schema:
+            value = row[field.name]
+            if pa.types.is_floating(field.type) and value is not None and not math.isfinite(value):
+                raise ValueError(f"{name}: {field.name} must be finite")
+        for status, reasons in (
+            ("availability_status", "availability_reasons"),
+            ("score_status", "score_reasons"),
+            ("eligibility", "eligibility_reasons"),
+            ("status", "status_reasons"),
+        ):
+            if status in row and row[status] != "eligible" and not row[reasons]:
+                raise ValueError(f"{name}: unavailable result requires reasons")
         if (
             not row["run_id"]
             or len(row["config_sha256"]) != 64
@@ -189,6 +209,15 @@ def validate_table(name: str, table: pa.Table) -> None:
                 raise ValueError("pseudo_failure_episodes: recovery precedes confirmation")
         if name == "predictions" and row["horizon_hours"] <= 0:
             raise ValueError("predictions: horizon must be positive")
+        if name == "predictions":
+            if row["status"] != "eligible" and (
+                row["probability"] is not None or row["risk_level"] is not None
+            ):
+                raise ValueError("predictions: unavailable probability/risk must be null")
+            if row["probability"] is not None and not 0 <= row["probability"] <= 1:
+                raise ValueError("predictions: probability must be between 0 and 1")
+            if row["risk_level"] not in (None, "LOW", "MEDIUM", "HIGH"):
+                raise ValueError("predictions: invalid risk level")
         for status_field, value_field in (
             ("score_status", "score"),
             ("status", "score"),
@@ -209,3 +238,7 @@ def validate_table(name: str, table: pa.Table) -> None:
                 raise ValueError("anomaly_scores: invalid distance status")
             if row["distance_status"] != "eligible" and row["cluster_distance"] is not None:
                 raise ValueError("anomaly_scores: unavailable distance must be null")
+            if row["distance_status"] == "eligible" and (
+                row["cluster_distance"] is None or not row["distance_measure"]
+            ):
+                raise ValueError("anomaly_scores: available distance requires value and measure")
