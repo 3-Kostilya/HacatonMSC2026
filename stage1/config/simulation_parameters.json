@@ -1,5 +1,5 @@
 {
-  "simulation_version": "stage1-simulation-v1",
+  "simulation_version": "stage1-simulation-v2",
   "frozen_at": "2026-09-19",
   "seed": 260919,
   "minimum_clean_prefix_seconds": 604800,
@@ -16,7 +16,18 @@
         "spike_sigma": 7.0,
         "rapid_switch_seconds": 240,
         "gap_seconds": 172800,
-        "outage_channel_count": 3
+        "outage_channel_count": 3,
+        "b2_numeric_duration_hours": 48,
+        "seasonal_amplitude_sigma": 2.0,
+        "heavy_tail_sigma": 6.0,
+        "known_cadence_dropout_hours": 24,
+        "degraded_communication_hours": 48,
+        "degradation_keep_every": 4,
+        "multi_channel_effect_hours": 24,
+        "export_gap_channel_count": 3,
+        "environment_channel_count": 3,
+        "mixed_duration_hours": 24,
+        "mixed_shift": 5.0
       }
     },
     "synthetic_holdout": {
@@ -30,7 +41,18 @@
         "spike_sigma": 8.5,
         "rapid_switch_seconds": 150,
         "gap_seconds": 259200,
-        "outage_channel_count": 4
+        "outage_channel_count": 4,
+        "b2_numeric_duration_hours": 60,
+        "seasonal_amplitude_sigma": 2.4,
+        "heavy_tail_sigma": 7.0,
+        "known_cadence_dropout_hours": 36,
+        "degraded_communication_hours": 60,
+        "degradation_keep_every": 5,
+        "multi_channel_effect_hours": 36,
+        "export_gap_channel_count": 4,
+        "environment_channel_count": 4,
+        "mixed_duration_hours": 36,
+        "mixed_shift": 6.0
       }
     }
   },
@@ -41,6 +63,17 @@
     "spike_sigma": [6.0, 9.0],
     "rapid_switch_seconds": [120, 300],
     "gap_seconds": [172800, 345600],
-    "outage_channel_count": [3, 5]
+    "outage_channel_count": [3, 5],
+    "b2_numeric_duration_hours": [48, 72],
+    "seasonal_amplitude_sigma": [1.5, 3.0],
+    "heavy_tail_sigma": [5.0, 8.0],
+    "known_cadence_dropout_hours": [24, 48],
+    "degraded_communication_hours": [48, 72],
+    "degradation_keep_every": [3, 6],
+    "multi_channel_effect_hours": [24, 48],
+    "export_gap_channel_count": [3, 5],
+    "environment_channel_count": [3, 5],
+    "mixed_duration_hours": [24, 48],
+    "mixed_shift": [4.0, 8.0]
   }
 }
