@@ -1,36 +1,288 @@
-* {
-  box-sizing: border-box;
-}
+/* =========================================================
+   DARK THEME
+========================================================= */
 
-html,
-body,
-#root {
-  margin: 0;
-  min-height: 100%;
-}
-
-body {
-  min-width: 320px;
-  min-height: 100vh;
-
+:root {
   font-family:
     Inter,
-    Arial,
-    Helvetica,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
     sans-serif;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  color-scheme: dark;
+
+
+  /* Page */
+
+  --page:
+    #15191e;
+
+  --page-top:
+    #191e24;
+
+
+  /* Main panels */
+
+  --panel:
+    #20252b;
+
+  --panel-secondary:
+    #1b2026;
+
+  --panel-hover:
+    #272d34;
+
+  --panel-selected:
+    #2b323a;
+
+
+  /* Borders */
+
+  --border:
+    #30373f;
+
+  --border-strong:
+    #444d57;
+
+
+  /* Text */
+
+  --text:
+    #edf0f2;
+
+  --text-secondary:
+    #bdc3ca;
+
+  --text-muted:
+    #8e97a1;
+
+  --text-faint:
+    #6f7883;
+
+
+  /* Controls */
+
+  --control:
+    #2a3037;
+
+  --control-hover:
+    #353c45;
+
+  --input:
+    #181c21;
+
+
+  /* Status */
+
+  --success-bg:
+    #29342f;
+
+  --success-text:
+    #91b09d;
+
+  --danger-bg:
+    #3b292b;
+
+  --danger-text:
+    #d18c91;
+
+  --warning-bg:
+    #3c3528;
+
+  --warning-text:
+    #c8ae73;
+
+  --anomaly-bg:
+    #31313d;
+
+  --anomaly-text:
+    #aaa5c8;
+
+
+  /* Error */
+
+  --error-bg:
+    #38282a;
+
+  --error-border:
+    #704447;
+
+  --error-text:
+    #e1aaaa;
+
+
+  /* Risk */
+
+  --risk-track:
+    #30363d;
+
+  --risk-start:
+    #667684;
+
+  --risk-end:
+    #ae8d5e;
+
+
+  /* Misc */
+
+  --shadow:
+    0 10px 30px
+    rgb(0 0 0 / 8%);
+
+  --focus:
+    #6d7885;
+}
+
+
+/* =========================================================
+   LIGHT THEME
+========================================================= */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Основной фон */
+  --page: #d8d6d0;
+  --page-top: #e3e1dc;
+
+  /* Основные панели */
+  --panel: #ebe9e4;
+  --panel-secondary: #dfddd7;
+  --panel-hover: #d5d3cd;
+  --panel-selected: #cccac4;
+
+  /* Границы */
+  --border: #c4c1ba;
+  --border-strong: #aaa69e;
+
+  /* Текст */
+  --text: #272a2d;
+  --text-secondary: #45494d;
+  --text-muted: #686d71;
+  --text-faint: #81868a;
+
+  /* Кнопки и поля */
+  --control: #dcd9d3;
+  --control-hover: #cfccc6;
+  --input: #f1efeb;
+
+  /* Состояния */
+  --success-bg: #d8e3db;
+  --success-text: #496553;
+
+  --danger-bg: #e7d5d5;
+  --danger-text: #89565a;
+
+  --warning-bg: #e5ddcb;
+  --warning-text: #75613e;
+
+  --anomaly-bg: #dcdae4;
+  --anomaly-text: #615d76;
+
+  /* Ошибка */
+  --error-bg: #e5d3d4;
+  --error-border: #bd9093;
+  --error-text: #74494c;
+
+  /* Полоса риска */
+  --risk-track: #cbc8c2;
+  --risk-start: #71808a;
+  --risk-end: #9c805a;
+
+  /* Остальное */
+  --shadow:
+    0 10px 28px
+    rgb(50 48 44 / 7%);
+
+  --focus: #747b80;
+}
+
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+* {
+  box-sizing:
+    border-box;
+}
+
+
+html {
+  min-width:
+    320px;
+
+  min-height:
+    100%;
+
+  background:
+    var(--page);
+}
+
+
+body {
+  margin:
+    0;
+
+  min-width:
+    320px;
+
+  min-height:
+    100vh;
+
+  color:
+    var(--text);
 
   background:
     radial-gradient(
-      circle at 30% 0%,
-      #111c2c 0,
-      #080d14 35%,
-      #060a10 100%
+      circle at top,
+      var(--page-top) 0,
+      var(--page) 520px
     );
 
-  color: #e8edf4;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
+
 
 button,
 input {
-  font: inherit;
+  font:
+    inherit;
+}
+
+
+button {
+  user-select:
+    none;
+}
+
+
+button:focus-visible,
+input:focus-visible {
+  outline:
+    2px solid
+    var(--focus);
+
+  outline-offset:
+    2px;
+}
+
+
+::selection {
+  color:
+    var(--text);
+
+  background:
+    var(--panel-selected);
 }
