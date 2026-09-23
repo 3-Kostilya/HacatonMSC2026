@@ -60,6 +60,21 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(window.observed_intervals[0].start_at, events[1].timestamp)
         self.assertEqual(window.observed_intervals[0].end_at, events[1].timestamp)
 
+    def test_window_excludes_left_boundary_and_counts_expected_slots(self):
+        window = audit_channel(
+            "42",
+            [
+                event(self.decision_at - timedelta(hours=1)),
+                event(self.decision_at - timedelta(minutes=30)),
+                event(self.decision_at),
+            ],
+            self.decision_at,
+            self.policy,
+        ).window("1h")
+        self.assertEqual(window.event_count, 2)
+        self.assertEqual(window.first_observed_at, self.decision_at - timedelta(minutes=30))
+        self.assertEqual(window.coverage, 1.0)
+
     def test_unknown_cadence_keeps_coverage_unknown(self):
         report = audit_channel(
             "42",

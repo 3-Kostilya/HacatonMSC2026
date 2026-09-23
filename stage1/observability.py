@@ -71,6 +71,8 @@ class ObservationInterval:
 
 @dataclass(frozen=True, slots=True)
 class WindowAudit:
+    """Cadence audit of distinct observed timestamps, not raw event-row counts."""
+
     name: str
     start_at: datetime
     end_at: datetime
@@ -149,8 +151,9 @@ def _audit_window(
     exclusion_reasons: tuple[str, ...],
 ) -> WindowAudit:
     start_at = decision_at - duration
-    timestamps = tuple(ts for ts in usable_timestamps if start_at <= ts <= decision_at)
-    excluded_count = sum(start_at <= ts <= decision_at for ts in excluded_timestamps)
+    # Match the M0 feature-window contract: (decision_at - duration, decision_at].
+    timestamps = tuple(ts for ts in usable_timestamps if start_at < ts <= decision_at)
+    excluded_count = sum(start_at < ts <= decision_at for ts in excluded_timestamps)
     first_at = timestamps[0] if timestamps else None
     last_at = timestamps[-1] if timestamps else None
     age = (decision_at - last_at).total_seconds() if last_at is not None else None
@@ -197,7 +200,7 @@ def _audit_window(
 
     cadence = policy.expected_cadence
     maximum_gap = cadence * policy.maximum_gap_factor
-    expected_count = math.floor(duration / cadence) + 1
+    expected_count = max(1, math.ceil(duration / cadence))
     coverage = min(1.0, len(timestamps) / expected_count)
     gaps: list[float] = []
     if timestamps:
