@@ -3,6 +3,21 @@
 from stage1.ingestion.schemas import RAW_COLUMNS
 
 
+AUXILIARY_EXPORTS = {
+    "excluded_rows": """SELECT r.*,
+        CASE WHEN r.disposition='exact_duplicate' THEN f.source END AS duplicate_of_source,
+        CASE WHEN r.disposition='exact_duplicate' THEN f.source_row END AS duplicate_of_source_row
+        FROM classified r
+        LEFT JOIN raw f ON r.first_row_id=f.row_id
+        WHERE r.disposition<>'accepted' ORDER BY r.row_id""",
+    "sensor_statistics": """SELECT channel_id, sensor_type, count(*) AS rows,
+        count(value_numeric) AS numeric_count, count(value_state) AS state_count,
+        sum(alarm::INTEGER) AS alarm_count, min(timestamp) AS first_at,
+        max(timestamp) AS last_at, count(DISTINCT value_raw) AS distinct_values
+        FROM clean GROUP BY channel_id, sensor_type ORDER BY channel_id""",
+}
+
+
 def literal(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
@@ -63,17 +78,16 @@ def export_tables(connection, output) -> None:
             ORDER BY channel_id, timestamp, row_id
         ) TO {literal((partition / "data_0.parquet").as_posix())}
         (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 100000)""")
-    for name, query in {
-        "excluded_rows": """SELECT r.*, f.source AS duplicate_of_source,
-            f.source_row AS duplicate_of_source_row FROM classified r
-            LEFT JOIN raw f ON r.first_row_id=f.row_id AND r.disposition='exact_duplicate'
-            WHERE r.disposition<>'accepted' ORDER BY r.row_id""",
-        "sensor_statistics": """SELECT channel_id, sensor_type, count(*) AS rows,
-            count(value_numeric) AS numeric_count, count(value_state) AS state_count,
-            sum(alarm::INTEGER) AS alarm_count, min(timestamp) AS first_at,
-            max(timestamp) AS last_at, count(DISTINCT value_raw) AS distinct_values
-            FROM clean GROUP BY channel_id, sensor_type ORDER BY channel_id""",
-    }.items():
-        connection.execute(
-            f"COPY ({query}) TO {literal((output / (name + '.parquet')).as_posix())} (FORMAT PARQUET, COMPRESSION ZSTD)"
-        )
+    for name in AUXILIARY_EXPORTS:
+        export_auxiliary_table(connection, output / (name + ".parquet"), name)
+
+
+def export_auxiliary_table(connection, path, name) -> None:
+    """Export one named, reviewed query to an exact caller-provided path."""
+    try:
+        query = AUXILIARY_EXPORTS[name]
+    except KeyError as error:
+        raise ValueError(f"Unknown auxiliary export: {name}") from error
+    connection.execute(
+        f"COPY ({query}) TO {literal(path.as_posix())} (FORMAT PARQUET, COMPRESSION ZSTD)"
+    )

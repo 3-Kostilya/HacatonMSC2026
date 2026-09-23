@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 
 from stage1.contracts import Decision, Episode, NormalizedEvent
 from stage1.forecast_labels import label_future_onsets
+from stage1.ingestion.m0_projection import iter_m0_clean_batches
 from stage1.ingestion.pipeline import run_ingestion
 from stage1.ml_m0_contracts import (
     CONTRACT_VERSION,
@@ -51,16 +52,7 @@ class SharedM0FixtureTests(unittest.TestCase):
                 for path in sorted((destination / "clean").rglob("*.parquet"))
                 for row in pq.read_table(path).to_pylist()
             ]
-            public_rows = [
-                {
-                    **PROVENANCE,
-                    **{
-                        name: row[name] for name in SCHEMAS["clean"].names if name not in PROVENANCE
-                    },
-                }
-                for row in rows
-            ]
-            shared = pa.Table.from_pylist(public_rows, schema=SCHEMAS["clean"])
+            shared = pa.Table.from_batches(list(iter_m0_clean_batches(destination, batch_size=3)))
             shared_path = Path(directory) / "shared.parquet"
             pq.write_table(shared, shared_path)
             reread = pq.read_table(shared_path)

@@ -10,7 +10,7 @@ def rows(connection, query):
     return [dict(zip(names, row)) for row in result.fetchall()]
 
 
-def build_quality_report(connection, output, manifest, dictionary_audit):
+def build_quality_report(connection, output, manifest, dictionary_audit, *, write_outputs=True):
     totals = dict(
         connection.execute(
             "SELECT disposition, count(*) FROM classified GROUP BY disposition"
@@ -72,6 +72,18 @@ def build_quality_report(connection, output, manifest, dictionary_audit):
     }
     if not all(report["sanity_checks"].values()):
         raise ValueError(f"Ingestion sanity checks failed: {report['sanity_checks']}")
+    report["output_files"] = [
+        {"path": str(p.relative_to(output)), "bytes": p.stat().st_size}
+        for p in sorted(output.rglob("*.parquet"))
+    ]
+    report["parquet_bytes"] = sum(item["bytes"] for item in report["output_files"])
+    if write_outputs:
+        write_quality_outputs(output, report)
+    return report
+
+
+def write_quality_outputs(output, report):
+    """Write the two small report files after all report checks have passed."""
     # No candidate counts: this milestone does not run anomaly detection.
     family_columns = [
         "sensor_type",
@@ -87,12 +99,6 @@ def build_quality_report(connection, output, manifest, dictionary_audit):
         writer = csv.DictWriter(f, fieldnames=family_columns)
         writer.writeheader()
         writer.writerows(report["by_type"])
-    report["output_files"] = [
-        {"path": str(p.relative_to(output)), "bytes": p.stat().st_size}
-        for p in sorted(output.rglob("*.parquet"))
-    ]
-    report["parquet_bytes"] = sum(item["bytes"] for item in report["output_files"])
     (output / "data_quality.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
-    return report
