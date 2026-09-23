@@ -75,7 +75,9 @@ SHA-256 исходного manifest для отбора:
 Состав выборки записан в соседнем
 `b1_full_sample.report.json`.
 
-Проверены 162 теста `stage1`, 39 тестов `analysis` и Ruff. Команды:
+До объединения с текущей веткой B проверены 162 теста `stage1` и 39 тестов
+`analysis`; после объединения — 180 и 46 соответственно. `ruff check .`
+также прошёл. Команды:
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s stage1 -p 'test_*.py' -q
