@@ -51,30 +51,51 @@
 
 ## Проверка на существующих 20 QA-каналах
 
+Для локального повторения сначала собрать R2 с B2 и A3 из уже имеющегося
+20-канального A2:
+
+```powershell
+.venv\Scripts\python.exe -m analysis.build_r2_a_features `
+  --a2-dir output/milestone2/a2-real20-june2025-local `
+  --m1-manifest output/full_20260922/full_20260922/manifest.json `
+  --b2-dir output/r2-b-registered-episodes-full-r1v2 `
+  --output output/r2-a-state-history-real20-june2025-with-b2-r3local
+.venv\Scripts\python.exe -m analysis.build_r3_a_feature_pack `
+  --a2-dir output/milestone2/a2-real20-june2025-local `
+  --r2-dir output/r2-a-state-history-real20-june2025-with-b2-r3local `
+  --output output/r3-a-feature-pack-real20-june2025-b2-r3local
+```
+
 Команда воспроизводит разметку из того же M1 и полного B2, затем сверяет
-ключи со статусами R2/A:
+ключи, происхождение и allowlist с A3, а статусы — с R2/A:
 
 ```powershell
 .venv\Scripts\python.exe -m analysis.build_r3_registered_labels `
   --a2-dir output/milestone2/a2-real20-june2025-local `
   --m1-manifest output/full_20260922/full_20260922/manifest.json `
   --b2-dir output/r2-b-registered-episodes-full-r1v2 `
-  --r2-dir output/r2-a-state-history-real20-june2025-r1v2-local `
-  --output output/r3-b-registered-labels-real20-june2025-qa-v5
+  --r2-dir output/r2-a-state-history-real20-june2025-with-b2-r3local `
+  --a3-dir output/r3-a-feature-pack-real20-june2025-b2-r3local `
+  --output output/r3-b-registered-labels-real20-june2025-a3-jointqa-v2
 ```
 
 Получено ровно 14 400 ключей: `positive=12`, `negative=3 075`,
 `unknown=8 179`, `excluded=3 134`. Двенадцать положительных часовых точек
 принадлежат четырём эпизодам одного дымового канала, максимум восемь часов
-на один эпизод. Все 12 имеют `discrete_data_status=unknown` в текущей
-20-канальной таблице A; причины — `baseline_unusable` и
+на один эпизод. Все 12 имеют `availability_status=unknown`,
+`numeric_data_status=unknown` и `discrete_data_status=unknown` в текущей
+20-канальной таблице A; причины дискретной ветви — `baseline_unusable` и
 `state_history_missing`. Среди отрицательных 388 часов имеют пригодный
-дискретный статус. Этот специально отобранный QA-срез не является ни train,
+дискретный статус. Пакет A3, опубликованный A коммитом `6b195b7`,
+локально пересобран из того же A2/R2/B2. Все 14 400 ключей совпали с B3;
+проверены SHA-256 источников и раздела, 111 разрешённых признаков и отсутствие
+метки/части в признаках. Пакет имеет `purpose=qa_only` и
+`not_training_ready=true`. Этот специально отобранный QA-срез не является ни train,
 ни validation, ни test; по нему нельзя оценивать распространённость классов.
 
 Код разметки — `stage1/state_labeling/forecast.py`; QA-сборка и проверка
 версий/хешей — `analysis/build_r3_registered_labels.py`. Паркет, отчёт и
-манифест лежат в `output/r3-b-registered-labels-real20-june2025-qa-v5/`
+манифест лежат в `output/r3-b-registered-labels-real20-june2025-a3-jointqa-v2/`
 и не добавляются в Git.
 
 Для **закрытия R3** требуется A3 feature pack на полной целевой популяции с

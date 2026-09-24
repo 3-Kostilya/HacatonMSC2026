@@ -27,6 +27,7 @@ if str(ROOT) not in sys.path:
 from analysis.build_a2_hourly import _monthly_files  # noqa: E402
 from analysis.build_r1_state_mapping import _sha256  # noqa: E402
 from analysis.build_registered_state_episodes import _validated_m1, EPISODE_SCHEMA  # noqa: E402
+from stage1.features.r3 import MODEL_FEATURE_ALLOWLIST, R3_PACK_VERSION  # noqa: E402
 from stage1.state_labeling.forecast import (  # noqa: E402
     HORIZON,
     LABEL_VERSION,
@@ -187,9 +188,97 @@ def _r2_statuses(
     return rows, _sha256(manifest_path)
 
 
+def _audit_a3_pack(
+    a3_dir: Path, *, a2_manifest: Path, r2_manifest: Path,
+    m1_manifest: Path, b2_manifest: Path,
+    expected_keys: set[tuple[str, datetime]], labels: list,
+) -> dict[str, Any]:
+    manifest_path = a3_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    expected_sources = {
+        "source_a2_manifest_sha256": _sha256(a2_manifest),
+        "source_r2_manifest_sha256": _sha256(r2_manifest),
+        "source_m1_manifest_sha256": _sha256(m1_manifest),
+        "source_b2_catalog_manifest_sha256": _sha256(b2_manifest),
+    }
+    if (
+        manifest.get("status") != "complete"
+        or manifest.get("schema_version") != R3_PACK_VERSION
+        or any(manifest.get(key) != value for key, value in expected_sources.items())
+    ):
+        raise ValueError("A3 pack version or source lineage differs from B3")
+    allowlist_path = a3_dir / manifest["allowlist_file"]
+    if _sha256(allowlist_path) != manifest["allowlist_sha256"]:
+        raise ValueError("A3 feature allowlist SHA-256 mismatch")
+    allowlist = json.loads(allowlist_path.read_text(encoding="utf-8"))
+    names = [field["name"] for field in allowlist["feature_columns"]]
+    if (
+        allowlist.get("schema_version") != R3_PACK_VERSION
+        or names != list(MODEL_FEATURE_ALLOWLIST)
+        or len(names) != len(set(names))
+        or any(name in {"target", "split", "target_episode_id"} for name in names)
+    ):
+        raise ValueError("A3 model allowlist differs from the reviewed feature contract")
+    all_keys: set[tuple[str, datetime]] = set()
+    status_by_key: dict[tuple[str, datetime], dict] = {}
+    physical_rows = 0
+    for chunk in manifest["chunks"]:
+        feature_path = a3_dir / chunk["features_file"]
+        status_path = a3_dir / chunk["row_status_file"]
+        if (
+            _sha256(feature_path) != chunk["features_sha256"]
+            or _sha256(status_path) != chunk["row_status_sha256"]
+        ):
+            raise ValueError("A3 partition SHA-256 mismatch")
+        feature_file = pq.ParquetFile(feature_path)
+        if feature_file.schema_arrow.names != ["channel_id", "prediction_time", *names]:
+            raise ValueError("A3 feature columns differ from the allowlist")
+        if any(
+            str(feature_file.schema_arrow.field(name).type) != field["arrow_type"]
+            for name, field in zip(names, allowlist["feature_columns"])
+        ):
+            raise ValueError("A3 feature types differ from the allowlist")
+        columns = ["channel_id", "prediction_time"]
+        feature_keys = [
+            (row["channel_id"], row["prediction_time"])
+            for row in pq.read_table(feature_path, columns=columns).to_pylist()
+        ]
+        status_rows = pq.read_table(
+            status_path, columns=[*columns, "availability_status", "numeric_data_status", "discrete_data_status"]
+        ).to_pylist()
+        status_keys = [(row["channel_id"], row["prediction_time"]) for row in status_rows]
+        if len(feature_keys) != chunk["rows"] or feature_keys != status_keys:
+            raise ValueError("A3 feature and row-status keys differ")
+        if len(set(feature_keys)) != len(feature_keys) or all_keys.intersection(feature_keys):
+            raise ValueError("A3 keys are not unique across partitions")
+        all_keys.update(feature_keys)
+        status_by_key.update(zip(status_keys, status_rows))
+        physical_rows += len(feature_keys)
+    if physical_rows != manifest["row_count"] or all_keys != expected_keys:
+        raise ValueError("A3 and B3 prediction keys differ")
+    by_label: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: defaultdict(Counter))
+    for label in labels:
+        row = status_by_key[label.channel_id, label.prediction_time]
+        for field in ("availability_status", "numeric_data_status", "discrete_data_status"):
+            by_label[label.label_status][field][row[field]] += 1
+    return {
+        "manifest_sha256": _sha256(manifest_path),
+        "purpose": manifest["purpose"],
+        "not_training_ready": manifest["not_training_ready"],
+        "matched_rows": physical_rows,
+        "feature_count": len(names),
+        "row_status_by_label": {
+            name: {
+                field: dict(sorted(counts.items())) for field, counts in sorted(fields.items())
+            }
+            for name, fields in sorted(by_label.items())
+        },
+    }
+
+
 def build(
     *, a2_dir: Path, m1_manifest: Path, b2_dir: Path, output: Path,
-    r2_dir: Path | None = None,
+    r2_dir: Path | None = None, a3_dir: Path | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     a2_dir, m1_manifest, b2_dir, output = (
@@ -259,6 +348,8 @@ def build(
         raise ValueError("one positive episode appears in multiple assigned splits")
     r2_status_by_label: dict[str, Counter[str]] = defaultdict(Counter)
     r2_manifest_hash = None
+    if a3_dir is not None and r2_dir is None:
+        raise ValueError("--a3-dir requires --r2-dir for exact source verification")
     if r2_dir is not None:
         expected_keys = {(label.channel_id, label.prediction_time) for label in labels}
         r2_status, r2_manifest_hash = _r2_statuses(
@@ -271,6 +362,15 @@ def build(
             r2_status_by_label[label.label_status][
                 r2_status[(label.channel_id, label.prediction_time)]
             ] += 1
+    a3_audit = None
+    if a3_dir is not None:
+        a3_audit = _audit_a3_pack(
+            a3_dir.resolve(), a2_manifest=a2_dir / "manifest.json",
+            r2_manifest=r2_dir.resolve() / "manifest.json", m1_manifest=m1_manifest,
+            b2_manifest=b2_dir / "manifest.json",
+            expected_keys={(label.channel_id, label.prediction_time) for label in labels},
+            labels=labels,
+        )
     report = {
         "schema_version": LABEL_VERSION,
         "status": "bounded_qa_only_not_train_test",
@@ -299,6 +399,7 @@ def build(
             status: dict(sorted(counts.items()))
             for status, counts in sorted(r2_status_by_label.items())
         },
+        "a3_feature_pack_audit": a3_audit,
         "global_candidate_episode_split_counts": _global_episode_split_counts(
             b2_dir / "registered_state_episodes.parquet"
         ),
@@ -323,6 +424,7 @@ def build(
         "source_m1_manifest_sha256": _sha256(m1_manifest),
         "source_b2_manifest_sha256": _sha256(b2_dir / "manifest.json"),
         "source_r2_manifest_sha256": r2_manifest_hash,
+        "source_a3_manifest_sha256": a3_audit["manifest_sha256"] if a3_audit else None,
         "episode_version": EPISODE_VERSION,
         "ruleset_version": RULESET_VERSION,
         "row_count": table.num_rows,
@@ -345,6 +447,7 @@ def main() -> None:
     parser.add_argument("--m1-manifest", type=Path, required=True)
     parser.add_argument("--b2-dir", type=Path, required=True)
     parser.add_argument("--r2-dir", type=Path)
+    parser.add_argument("--a3-dir", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = build(
@@ -353,6 +456,7 @@ def main() -> None:
         b2_dir=args.b2_dir,
         output=args.output,
         r2_dir=args.r2_dir,
+        a3_dir=args.a3_dir,
     )
     print(json.dumps({"output": str(args.output.resolve()), **result}, ensure_ascii=False))
 
