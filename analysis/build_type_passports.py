@@ -567,11 +567,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    dictionary_path = ROOT / "dataset" / "справочник_каналов_датчиков.csv"
-    sample_path = ROOT / "dataset" / "журнал_событий_пример.csv"
+    dictionary_path = ROOT / "data" / "справочник_каналов_датчиков.csv"
+    sample_path = ROOT / "data" / "журнал_событий_пример.csv"
     by_channel, by_type = read_dictionary(dictionary_path)
     profiles = load_profiles(ROOT / "analysis" / "results")
-    archives = sorted((ROOT / "dataset").glob("ext-journal-*.7z"))
+    archives = sorted((ROOT / "data").glob("ext-journal-*.7z"))
     archive_years = {int(path.stem[-4:]) for path in archives}
     samples: dict[tuple[str, int], dict] = {}
     sampled_sources = []

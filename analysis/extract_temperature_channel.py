@@ -22,7 +22,7 @@ COLUMNS = [
 
 def extract(channel_id):
     audit = json.loads((ROOT / "output/dictionary_check/audit.json").read_text(encoding="utf-8"))
-    dictionary = ROOT / "dataset/справочник_каналов_датчиков.csv"
+    dictionary = ROOT / "data/справочник_каналов_датчиков.csv"
     if hashlib.sha256(dictionary.read_bytes()).hexdigest() != audit["channels"]["sha256"]:
         raise ValueError("Dictionary changed since its audit")
     channels = pd.read_csv(dictionary, dtype=str, keep_default_na=False)
@@ -40,7 +40,7 @@ def extract(channel_id):
         prior = json.loads(
             (ROOT / f"analysis/results/ext-journal-{year}.json").read_text(encoding="utf-8")
         )
-        archive = ROOT / f"dataset/ext-journal-{year}.7z"
+        archive = ROOT / f"data/ext-journal-{year}.7z"
         if archive.stat().st_size != prior["bytes"]:
             raise ValueError(f"Archive changed: {archive.name}")
         proc = subprocess.Popen(

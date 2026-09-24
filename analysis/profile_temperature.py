@@ -17,7 +17,7 @@ COLS = ["ид_канала_данных", "дата", "время", "значе�
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    dictionary_path = ROOT / "dataset/справочник_каналов_датчиков.csv"
+    dictionary_path = ROOT / "data/справочник_каналов_датчиков.csv"
     dictionary = pd.read_csv(dictionary_path, dtype=str, keep_default_na=False)
     selected = dictionary.loc[dictionary["тип_датчика"].eq("Датчик температуры")]
     ids = set(selected["ид_канала_данных"])
@@ -28,7 +28,7 @@ def main():
     parts = []
     scanned = {}
     for year in YEARS:
-        archive = ROOT / f"dataset/ext-journal-{year}.7z"
+        archive = ROOT / f"data/ext-journal-{year}.7z"
         previous = json.loads(
             (ROOT / f"analysis/results/ext-journal-{year}.json").read_text(encoding="utf-8")
         )

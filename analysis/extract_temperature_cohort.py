@@ -29,7 +29,7 @@ def main():
     )
     frames = []
     for year in (2025, 2026):
-        archive = ROOT / f"dataset/ext-journal-{year}.7z"
+        archive = ROOT / f"data/ext-journal-{year}.7z"
         prior = json.loads(
             (ROOT / f"analysis/results/ext-journal-{year}.json").read_text(encoding="utf-8")
         )

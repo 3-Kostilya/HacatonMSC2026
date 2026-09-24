@@ -23,7 +23,7 @@ from analysis.audit_stage1_sources import find_seven_zip  # noqa: E402
 from stage1.normalization import NormalizationResult, normalize_chunks  # noqa: E402
 
 
-DATASET = ROOT / "dataset"
+DATASET = ROOT / "data"
 DEFAULT_OUTPUT = ROOT / "output" / "stage1" / "normalized_sample.parquet"
 CHANNELS_PER_TYPE = 2
 CHUNK_SIZE = 10_000

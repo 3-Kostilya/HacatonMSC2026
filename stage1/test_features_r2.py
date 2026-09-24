@@ -3,8 +3,10 @@
 from datetime import datetime, timedelta
 import unittest
 
+import pyarrow as pa
+
 from stage1.features.hourly import FeatureEvent
-from stage1.features.r2 import CompletedEpisode, build_state_history_rows
+from stage1.features.r2 import CompletedEpisode, build_state_history_rows, validate_r2_table
 
 
 T = datetime(2025, 6, 10, 12)
@@ -44,6 +46,17 @@ def _event(minutes: int, state: str, alarm: bool = False, *, excluded: bool = Fa
 
 
 class R2FeatureTests(unittest.TestCase):
+    def test_saved_table_with_pre_r1_rules_is_rejected(self) -> None:
+        table = build_state_history_rows(
+            [_a2_row()], [], source_a2_manifest_sha256="a" * 64
+        )
+        index = table.schema.get_field_index("ruleset_version")
+        stale = table.set_column(
+            index, table.schema.field(index), pa.array(["registered-state-r1-b1-proposal-v1"])
+        )
+        with self.assertRaisesRegex(ValueError, "unexpected version"):
+            validate_r2_table(stale)
+
     def test_past_categories_and_discrete_branch_ignore_missing_numeric(self) -> None:
         events = [
             _event(-120, "Норма"),

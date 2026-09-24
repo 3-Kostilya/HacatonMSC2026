@@ -29,7 +29,7 @@ def pct(numerator, denominator):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    dictionary = ROOT / "dataset/справочник_каналов_датчиков.csv"
+    dictionary = ROOT / "data/справочник_каналов_датчиков.csv"
     dictionary_audit = load(ROOT / "output/dictionary_check/audit.json")
     if (
         hashlib.sha256(dictionary.read_bytes()).hexdigest()
@@ -38,7 +38,7 @@ def main():
         raise ValueError("Channel dictionary changed since the dictionary audit")
     years = [load(SAVED / f"ext-journal-{year}.json") for year in range(2019, 2027)]
     for year, saved in zip(range(2019, 2027), years, strict=True):
-        archive = ROOT / f"dataset/ext-journal-{year}.7z"
+        archive = ROOT / f"data/ext-journal-{year}.7z"
         if archive.stat().st_size != saved["bytes"] or saved["archive_exit_code"] != 0:
             raise ValueError(f"Journal profile is stale: {archive.name}")
     with dictionary.open(encoding="utf-8-sig", newline="") as stream:

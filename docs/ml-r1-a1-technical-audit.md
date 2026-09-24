@@ -11,7 +11,7 @@ state-эпизодов и моделей этот результат не соз
 
 Полный M1 не запускался повторно: вход — опубликованные 79 месячных clean
 Parquet с 259 453 121 принятыми записями. Исходный
-`dataset/справочник_состояний.csv` не изменён. Существующие M0-контракты,
+`data/справочник_состояний.csv` не изменён. Существующие M0-контракты,
 B2-синтетика, B3 score-эпизоды и часовой A2-код также сохранены. R0-аудит
 считается исходной проверкой, а не готовой разметкой.
 
@@ -108,7 +108,7 @@ B2-синтетика, B3 score-эпизоды и часовой A2-код та�
 Из корня репозитория, в окружении проекта, с новым выходным каталогом:
 
 ```powershell
-.\.venv\Scripts\python.exe -X utf8 analysis/build_r1_state_mapping.py --input-manifest output/milestone1/full_20260922/manifest.json --state-dictionary dataset/справочник_состояний.csv --output output/r1-state-mapping-repeat
+.\.venv\Scripts\python.exe -X utf8 analysis/build_r1_state_mapping.py --input-manifest output/milestone1/full_20260922/manifest.json --state-dictionary data/справочник_состояний.csv --output output/r1-state-mapping-repeat
 .\.venv\Scripts\python.exe -m unittest stage1.test_state_mapping analysis.test_build_r1_state_mapping -q
 .\.venv\Scripts\python.exe -X utf8 -m analysis.audit_a2_eligibility output/milestone2/a2-real20-june2025 --output output/milestone2/a2-eligibility-repeat.json
 ```

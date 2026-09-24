@@ -75,8 +75,8 @@ API от формата хранения не зависит.
 ```powershell
 python -X utf8 -m unittest stage1.test_normalization -v
 python -X utf8 analysis/prepare_stage1_sample.py `
-  --input dataset/журнал_событий_пример.csv `
-  --input dataset/ext-journal-2026.7z `
+  --input data/журнал_событий_пример.csv `
+  --input data/ext-journal-2026.7z `
   --max-input-rows 5000000 `
   --output output/stage1/normalized_sample.parquet
 ```

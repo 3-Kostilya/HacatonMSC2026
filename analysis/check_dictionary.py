@@ -62,8 +62,8 @@ def coverage(counts, known):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    cc, channels, ca = audit_table(ROOT / "dataset/справочник_каналов_датчиков.csv")
-    _, objects, oa = audit_table(ROOT / "dataset/справочник_объектов_диспетчер.csv")
+    cc, channels, ca = audit_table(ROOT / "data/справочник_каналов_датчиков.csv")
+    _, objects, oa = audit_table(ROOT / "data/справочник_объектов_диспетчер.csv")
     known = {r["ид_канала_данных"] for r in channels}
     by_id = {r["ид_объект"]: r for r in objects}
     ca["object_id_columns"] = [c for c in cc if "объект" in c.lower()]
@@ -93,7 +93,7 @@ def main():
     profiles = []
     for year in range(2019, 2027):
         saved = json.loads((RESULTS / f"ext-journal-{year}.json").read_text(encoding="utf-8"))
-        archive = ROOT / "dataset" / saved["file"]
+        archive = ROOT / "data" / saved["file"]
         listing = subprocess.check_output([seven, "l", "-slt", str(archive)], encoding="utf-8")
         same = archive.stat().st_size == saved["bytes"] and member_metadata(
             listing
@@ -105,7 +105,7 @@ def main():
         yearly.append({"year": year, **coverage(saved["channels"], known)})
         profiles.append({"file": archive.name, "size_and_member_metadata_match": same})
 
-    _, sample = read_csv(ROOT / "dataset/журнал_событий_пример.csv")
+    _, sample = read_csv(ROOT / "data/журнал_событий_пример.csv")
     sample_counts = collections.Counter(r["ид_канала_данных"] for r in sample)
     sample_saved = json.loads((RESULTS / "журнал_событий_пример.json").read_text(encoding="utf-8"))
     old = json.loads((RESULTS / "dictionaries.json").read_text(encoding="utf-8"))

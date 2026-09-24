@@ -107,8 +107,8 @@ holdout дал 1,00/1,00. Такое расхождение считается �
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s analysis -p "test_*.py" -v
 .\.venv\Scripts\python.exe -X utf8 -m unittest discover -s stage1 -p "test_*.py" -v
 .\.venv\Scripts\python.exe -X utf8 analysis/prepare_stage1_sample.py `
-  --input dataset/журнал_событий_пример.csv `
-  --input dataset/ext-journal-2026.7z `
+  --input data/журнал_событий_пример.csv `
+  --input data/ext-journal-2026.7z `
   --max-input-rows 5000000
 .\.venv\Scripts\python.exe -X utf8 analysis/run_stage1_baseline.py
 .\.venv\Scripts\python.exe -X utf8 -m analysis.build_synthetic_holdout --suite all --output output/stage1

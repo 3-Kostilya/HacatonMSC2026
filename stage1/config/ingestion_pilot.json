@@ -1,18 +1,18 @@
 {
-  "channels": "dataset/справочник_каналов_датчиков.csv",
-  "objects": "dataset/справочник_объектов_диспетчер.csv",
+  "channels": "data/справочник_каналов_датчиков.csv",
+  "objects": "data/справочник_объектов_диспетчер.csv",
   "output": "output/milestone1/verified",
   "memory_limit": "512MB",
   "batch_size": 25000,
   "keep_database": false,
   "sources": [
-    {"path": "dataset/журнал_событий_пример.csv", "max_rows": null},
-    {"path": "dataset/ext-journal-2019.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2020.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2022.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2023.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2024.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2025.7z", "max_rows": 100000},
-    {"path": "dataset/ext-journal-2026.7z", "max_rows": 100000}
+    {"path": "data/журнал_событий_пример.csv", "max_rows": null},
+    {"path": "data/ext-journal-2019.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2020.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2022.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2023.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2024.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2025.7z", "max_rows": 100000},
+    {"path": "data/ext-journal-2026.7z", "max_rows": 100000}
   ]
 }

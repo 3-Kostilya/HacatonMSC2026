@@ -271,7 +271,7 @@ add(
     f"5. Внутри годовых файлов найдено {num(TOTAL['duplicate_full_rows_hash64'])} полных повторов строк по хеш-проверке. В 2024 году отсутствуют 7 и 8 апреля. Повторы и разрывы нужно учитывать до построения признаков и оценки модели."
 )
 source(
-    "dataset/ext-journal-2019.7z ... ext-journal-2026.7z; три CSV в dataset. Все годовые строки прочитаны, ошибки чтения не пропускались."
+    "data/ext-journal-2019.7z ... ext-journal-2026.7z; три CSV в data. Все годовые строки прочитаны, ошибки чтения не пропускались."
 )
 
 section(2, "Состав и метод анализа")
@@ -789,10 +789,10 @@ add(
 
 section(23, "Примеры реальных записей")
 sample_df = pd.read_csv(
-    ROOT / "dataset/журнал_событий_пример.csv", dtype=str, keep_default_na=False
+    ROOT / "data/журнал_событий_пример.csv", dtype=str, keep_default_na=False
 )
 dict_df = pd.read_csv(
-    ROOT / "dataset/справочник_каналов_датчиков.csv", dtype=str, keep_default_na=False
+    ROOT / "data/справочник_каналов_датчиков.csv", dtype=str, keep_default_na=False
 )
 joined = sample_df.merge(dict_df, on="ид_канала_данных", validate="many_to_one")
 examples = []

@@ -43,7 +43,7 @@ def predict(events, as_of, model_dir=OUT, dictionary_path=None):
     model_path = model_dir / "catboost_smoke_failure.cbm"
     if hashlib.sha256(model_path.read_bytes()).hexdigest() != metadata["model_sha256"]:
         raise ValueError("Model and metadata do not match")
-    dictionary_path = dictionary_path or ROOT / "dataset" / "справочник_каналов_датчиков.csv"
+    dictionary_path = dictionary_path or ROOT / "data" / "справочник_каналов_датчиков.csv"
     dictionary = pd.read_csv(dictionary_path, dtype=str, keep_default_na=False)
     if dictionary["ид_канала_данных"].duplicated().any():
         raise ValueError("Duplicate channel IDs in dictionary")

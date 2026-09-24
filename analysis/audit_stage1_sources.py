@@ -22,7 +22,7 @@ from typing import BinaryIO, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = ROOT / "dataset"
+DATASET = ROOT / "data"
 DEFAULT_OUTPUT = ROOT / "output" / "stage1" / "source_audit.json"
 EVENT_SCHEMA = [
     "ид_события",

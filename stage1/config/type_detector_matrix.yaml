@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_dictionary": "dataset/справочник_каналов_датчиков.csv",
+  "source_dictionary": "data/справочник_каналов_датчиков.csv",
   "dictionary_type_column": "тип_датчика",
   "processing_modes": ["numeric", "discrete", "context"],
   "mode_statuses": ["primary", "supplemental", "conditional", "not_applicable"],

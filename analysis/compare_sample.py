@@ -9,7 +9,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "analysis/results"
-sample = pd.read_csv(ROOT / "dataset/журнал_событий_пример.csv", dtype=str, keep_default_na=False)
+sample = pd.read_csv(ROOT / "data/журнал_событий_пример.csv", dtype=str, keep_default_na=False)
 COLS = list(sample.columns)
 sample[COLS[4]] = sample[COLS[4]].replace({"true": "t", "false": "f"})
 sample = sample.set_index(COLS[0])
@@ -18,7 +18,7 @@ idset = set(sample.index)
 
 def probe(s):
     proc = subprocess.Popen(
-        [r"C:/Program Files/7-Zip/7z.exe", "x", "-so", str(ROOT / "dataset" / s["file"])],
+        [r"C:/Program Files/7-Zip/7z.exe", "x", "-so", str(ROOT / "data" / s["file"])],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )

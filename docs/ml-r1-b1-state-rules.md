@@ -137,11 +137,11 @@ B отвечает
 
 ## Воспроизведение
 
-На машине с переданным A исходным CSV:
+Когда исходный CSV помещён в локальную `data/`:
 
 ```powershell
-.\.venv\Scripts\python.exe -X utf8 -m stage1.state_labeling output/r1-a1-handoff-20260924-v4/справочник_состояний.csv
-.\.venv\Scripts\python.exe -X utf8 -m stage1.state_labeling output/r1-a1-handoff-20260924-v4/справочник_состояний.csv --details
+.\.venv\Scripts\python.exe -X utf8 -m stage1.state_labeling data/справочник_состояний.csv
+.\.venv\Scripts\python.exe -X utf8 -m stage1.state_labeling data/справочник_состояний.csv --details
 .\.venv\Scripts\python.exe -X utf8 -m unittest stage1.test_state_labeling stage1.test_r1_operational -v
 ```
 
@@ -150,4 +150,5 @@ B отвечает
 Команда возвращает ошибку, если источник изменился или появилась нерассмотренная
 пара. Тесты проверяют точную цель, ложные/истинные alarm, дым, батарею,
 неизвестный тип, конфликт CSV и границы 24 часов. Данные в `output/` и исходный
-CSV в Git не добавляются.
+CSV в Git не добавляются. При работе с локальным пакетом A вместо пути `data/`
+можно указать копию CSV из `output/r1-a1-handoff-20260924-v4/`.

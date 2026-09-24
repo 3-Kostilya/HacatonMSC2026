@@ -34,10 +34,10 @@ def find_seven_zip():
 def source_signature(years=(2022, 2023)):
     sources = {}
     for year in years:
-        path = ROOT / "dataset" / f"ext-journal-{year}.7z"
+        path = ROOT / "data" / f"ext-journal-{year}.7z"
         stat = path.stat()
         sources[path.name] = {"bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns}
-    dictionary = ROOT / "dataset" / "справочник_каналов_датчиков.csv"
+    dictionary = ROOT / "data" / "справочник_каналов_датчиков.csv"
     sources[dictionary.name] = {"sha256": hashlib.sha256(dictionary.read_bytes()).hexdigest()}
     return sources
 
@@ -45,7 +45,7 @@ def source_signature(years=(2022, 2023)):
 def extract(years=(2022, 2023), output=OUT):
     output.mkdir(parents=True, exist_ok=True)
     dictionary = pd.read_csv(
-        ROOT / "dataset" / "справочник_каналов_датчиков.csv",
+        ROOT / "data" / "справочник_каналов_датчиков.csv",
         dtype=str,
         keep_default_na=False,
     )
@@ -79,7 +79,7 @@ def extract(years=(2022, 2023), output=OUT):
             frames.append(pd.read_pickle(cache))
             audit[str(year)] = previous["counts"]
             continue
-        archive = ROOT / "dataset" / f"ext-journal-{year}.7z"
+        archive = ROOT / "data" / f"ext-journal-{year}.7z"
         proc = subprocess.Popen(
             [find_seven_zip(), "x", "-so", str(archive)],
             stdout=subprocess.PIPE,

@@ -14,7 +14,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 SEVEN = r"C:/Program Files/7-Zip/7z.exe"
 COLS = ["ид_события", "ид_канала_данных", "дата", "время", "тревожное", "значение_датчика"]
 dictionary = pd.read_csv(
-    ROOT / "dataset" / "справочник_каналов_датчиков.csv", dtype=str, keep_default_na=False
+    ROOT / "data" / "справочник_каналов_датчиков.csv", dtype=str, keep_default_na=False
 )
 type_map = dictionary.drop_duplicates(COLS[1]).set_index(COLS[1])["тип_датчика"].to_dict()
 system_map = dictionary.drop_duplicates(COLS[1]).set_index(COLS[1])["тип_инж_системы"].to_dict()
@@ -204,7 +204,7 @@ def profile(path):
 
 def dictionaries():
     result = {}
-    for path in sorted((ROOT / "dataset").glob("справочник*.csv")):
+    for path in sorted((ROOT / "data").glob("справочник*.csv")):
         df = pd.read_csv(path, dtype=str, keep_default_na=False)
         result[path.name] = {
             "rows": len(df),
@@ -225,8 +225,8 @@ def dictionaries():
 
 if __name__ == "__main__":
     dictionaries()
-    paths = [ROOT / "dataset" / "журнал_событий_пример.csv"] + sorted(
-        (ROOT / "dataset").glob("*.7z")
+    paths = [ROOT / "data" / "журнал_событий_пример.csv"] + sorted(
+        (ROOT / "data").glob("*.7z")
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = [executor.submit(profile, p) for p in paths]

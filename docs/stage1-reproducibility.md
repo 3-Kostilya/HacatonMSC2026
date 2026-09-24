@@ -23,9 +23,9 @@ HEAD сам по себе не определяет результат. Исти
 
 Первый шаг читает:
 
-- `dataset/журнал_событий_пример.csv`;
-- первые не более 5 000 000 строк `dataset/ext-journal-2026.7z`;
-- `dataset/справочник_каналов_датчиков.csv` для типа канала;
+- `data/журнал_событий_пример.csv`;
+- первые не более 5 000 000 строк `data/ext-journal-2026.7z`;
+- `data/справочник_каналов_датчиков.csv` для типа канала;
 - не более двух первых наблюдавшихся каналов каждого типа; для редкого
   `9-секционный люк` IDs предварительно берутся из справочника.
 
@@ -50,8 +50,8 @@ HEAD сам по себе не определяет результат. Исти
 
 ```powershell
 python analysis/prepare_stage1_sample.py `
-  --input "dataset/журнал_событий_пример.csv" `
-  --input "dataset/ext-journal-2026.7z" `
+  --input "data/журнал_событий_пример.csv" `
+  --input "data/ext-journal-2026.7z" `
   --max-input-rows 5000000 `
   --channels-per-type 2 `
   --output "output/stage1/normalized_sample.parquet"

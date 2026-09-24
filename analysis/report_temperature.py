@@ -13,7 +13,7 @@ OUT = ROOT / "output/temperature_profile"
 def main():
     audit = json.loads((OUT / "audit.json").read_text(encoding="utf-8"))
     yearly = pd.read_csv(OUT / "channel_year.csv", encoding="utf-8-sig", dtype={"channel_id": str})
-    with (ROOT / "dataset/справочник_каналов_датчиков.csv").open(
+    with (ROOT / "data/справочник_каналов_датчиков.csv").open(
         encoding="utf-8-sig", newline=""
     ) as stream:
         names = {

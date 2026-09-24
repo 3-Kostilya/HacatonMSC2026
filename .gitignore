@@ -1,4 +1,7 @@
-dataset
+# Raw source files stay local. Keep the directory itself in the repository.
+/data/*
+!/data/.gitkeep
+/dataset/
 
 # Local environments and IDE settings
 .venv/
