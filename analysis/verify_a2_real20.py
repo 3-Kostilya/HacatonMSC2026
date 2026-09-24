@@ -15,11 +15,16 @@ import json
 import math
 from pathlib import Path
 import statistics
+import sys
 
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 
-from stage1.features import A2_SCHEMA, FEATURE_VERSION
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from stage1.features import A2_SCHEMA, FEATURE_VERSION  # noqa: E402
 
 
 WINDOW_HOURS = (1, 6, 24, 168)
