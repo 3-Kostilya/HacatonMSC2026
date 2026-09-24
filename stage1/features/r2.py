@@ -17,6 +17,7 @@ import pyarrow as pa
 
 from stage1.features.hourly import FeatureEvent, HourlyConfig
 from stage1.features.schema import WINDOW_HOURS
+from stage1.state_labeling.operational import segment_at
 from stage1.state_labeling.rules import RULESET_VERSION, classify_message
 
 
@@ -136,15 +137,25 @@ def _semantic_prefix(events: list[FeatureEvent]) -> tuple[list[datetime], dict[s
 
 def _episode_prefix(
     episodes: list[CompletedEpisode],
-) -> tuple[list[datetime], list[float]]:
-    ordered = sorted(episodes, key=lambda episode: episode.end_at)
-    ends = [episode.end_at for episode in ordered]
-    duration_prefix = [0.0]
-    for episode in ordered:
-        duration_prefix.append(
-            duration_prefix[-1] + (episode.end_at - episode.start_at).total_seconds()
-        )
-    return ends, duration_prefix
+) -> dict[int, tuple[list[datetime], list[float]]]:
+    """Keep episode history inside one accepted archive segment."""
+    by_segment: dict[int, list[CompletedEpisode]] = defaultdict(list)
+    for episode in episodes:
+        segment = segment_at(episode.end_at)
+        if segment is None or segment_at(episode.start_at) != segment:
+            raise ValueError("completed episode crosses an excluded archive boundary")
+        by_segment[segment].append(episode)
+    result = {}
+    for segment, members in by_segment.items():
+        ordered = sorted(members, key=lambda episode: episode.end_at)
+        ends = [episode.end_at for episode in ordered]
+        duration_prefix = [0.0]
+        for episode in ordered:
+            duration_prefix.append(
+                duration_prefix[-1] + (episode.end_at - episode.start_at).total_seconds()
+            )
+        result[segment] = ends, duration_prefix
+    return result
 
 
 def build_state_history_rows(
@@ -199,7 +210,10 @@ def build_state_history_rows(
                 episode_history_status="catalog_unavailable",
             )
         else:
-            ends, durations = episode_prefixes.get(channel_id, ([], [0.0]))
+            segment = segment_at(t)
+            if segment is None:
+                raise ValueError("episode features require a prediction inside an R1 archive")
+            ends, durations = episode_prefixes.get(channel_id, {}).get(segment, ([], [0.0]))
             closed = bisect_right(ends, t)
             recent = bisect_right(ends, t - timedelta(hours=168))
             count = closed - recent
@@ -211,7 +225,7 @@ def build_state_history_rows(
                 completed_episode_mean_duration_seconds_168h=(
                     (durations[closed] - durations[recent]) / count if count else None
                 ),
-                episode_history_status="completed_only",
+                episode_history_status="unambiguous_completed_only",
             )
         numeric_status, numeric_reasons = _branch_status(row, discrete=False)
         discrete_status, discrete_reasons = _branch_status(row, discrete=True)
@@ -255,3 +269,21 @@ def validate_r2_table(table: pa.Table) -> None:
             value = row[field]
             if value is not None and (not math.isfinite(value) or value < 0):
                 raise ValueError("R2 completed-episode feature must be finite and nonnegative")
+        if row["episode_history_status"] == "catalog_unavailable":
+            if any(
+                row[name] is not None
+                for name in (
+                    "last_completed_episode_end_age_seconds",
+                    "completed_episode_count_168h",
+                    "completed_episode_mean_duration_seconds_168h",
+                )
+            ):
+                raise ValueError("unavailable episode catalog cannot create episode features")
+        elif row["episode_history_status"] == "unambiguous_completed_only":
+            count = row["completed_episode_count_168h"]
+            if count is None or count < 0:
+                raise ValueError("completed episode count must be nonnegative")
+            if (count == 0) != (row["completed_episode_mean_duration_seconds_168h"] is None):
+                raise ValueError("completed episode mean must match the episode count")
+        else:
+            raise ValueError("unknown R2 episode-history status")

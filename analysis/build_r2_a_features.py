@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from analysis.audit_a2_eligibility import audit as audit_a2  # noqa: E402
 from analysis.build_a2_hourly import _events_for_channel, _monthly_files  # noqa: E402
+from analysis.r2_b2_handoff import load_b2_for_a2  # noqa: E402
 from stage1.features.r2 import R2_VERSION, R2_STATE_SCHEMA, build_state_history_rows  # noqa: E402
 from stage1.state_labeling.rules import RULESET_VERSION  # noqa: E402
 
@@ -36,7 +37,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
+def build(
+    *,
+    a2_dir: Path,
+    m1_manifest: Path,
+    output: Path,
+    b2_dir: Path | None = None,
+    b2_input_manifest: Path | None = None,
+    b2_input_quality: Path | None = None,
+) -> dict[str, Any]:
     """Preserve the A2 slice and add only past semantic/availability columns."""
 
     a2_dir = a2_dir.resolve()
@@ -74,6 +83,23 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
         by_channel[row["channel_id"]].append(row)
     if set(by_channel) != set(channels):
         raise ValueError("A2 rows do not cover every selected channel")
+    if b2_dir is None and (b2_input_manifest is not None or b2_input_quality is not None):
+        raise ValueError("B2 input audit files require --b2-dir")
+    catalog = (
+        load_b2_for_a2(
+            b2_dir,
+            local_m1_manifest=m1_manifest,
+            channels=channels,
+            b_m1_manifest=b2_input_manifest,
+            b_m1_quality=b2_input_quality,
+        )
+        if b2_dir is not None
+        else None
+    )
+    episodes_by_channel: dict[str, list] = defaultdict(list)
+    if catalog is not None:
+        for episode in catalog.episodes:
+            episodes_by_channel[episode.channel_id].append(episode)
     context_start = start_at - timedelta(hours=168)
     files, missing_months = _monthly_files(m1_manifest.parent, context_start, end_at)
     if missing_months or not files:
@@ -91,6 +117,7 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
         lambda: {"numeric_data_status": Counter(), "discrete_data_status": Counter()}
     )
     row_count = 0
+    rows_with_completed_episode_history = 0
     writer = pq.ParquetWriter(feature_path, R2_STATE_SCHEMA, compression="zstd")
     try:
         for channel_id in sorted(channels):
@@ -99,6 +126,9 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
                 by_channel[channel_id],
                 events,
                 source_a2_manifest_sha256=_sha256(a2_manifest_path),
+                completed_episodes=(
+                    episodes_by_channel[channel_id] if catalog is not None else None
+                ),
             )
             writer.write_table(table)
             row_count += table.num_rows
@@ -106,6 +136,9 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
                 name: Counter() for name in ("numeric_data_status", "discrete_data_status")
             }
             for row in table.to_pylist():
+                rows_with_completed_episode_history += (
+                    row["last_completed_episode_end_age_seconds"] is not None
+                )
                 for name, counts in status_counts.items():
                     counts[row[name]] += 1
                     channel_status[name][row[name]] += 1
@@ -133,7 +166,12 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
         writer.close()
     if row_count != a2_manifest["feature_rows"]:
         raise ValueError("R2 supplement row count differs from A2")
-    if pq.ParquetFile(feature_path).metadata.num_rows != row_count:
+    physical_file = pq.ParquetFile(feature_path)
+    try:
+        physical_row_count = physical_file.metadata.num_rows
+    finally:
+        physical_file.close()
+    if physical_row_count != row_count:
         raise ValueError("R2 physical Parquet row count differs from A2")
     report = {
         "schema_version": R2_VERSION,
@@ -154,7 +192,9 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
         },
         "by_channel_operation_data_status": by_channel_report,
         "semantic_24h_counts_summed_over_hours": dict(sorted(message_totals.items())),
-        "episode_history_status": "catalog_unavailable",
+        "episode_history_status": (
+            "unambiguous_completed_only" if catalog is not None else "catalog_unavailable"
+        ),
         "model_admission_status": "unknown_until_model_contract",
         "future_label_status": "unknown_computed_by_b",
         "qa_selection_uses_target_period_presence": a2_audit["source"][
@@ -168,6 +208,13 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
             "Archive completeness is a conditional assumption, not proven channel continuity.",
         ],
     }
+    if catalog is not None:
+        report["episode_catalog"] = catalog.audit
+        report["rows_with_completed_episode_history"] = rows_with_completed_episode_history
+        report["limitations"][2] = (
+            "Completed-episode features use only B2 candidate onsets with unambiguous "
+            "exact Norma recovery known by prediction_time."
+        )
     report_path = pending / "report.json"
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -187,6 +234,8 @@ def build(*, a2_dir: Path, m1_manifest: Path, output: Path) -> dict[str, Any]:
             for path in (feature_path, report_path)
         },
     }
+    if catalog is not None:
+        manifest["episode_catalog"] = catalog.audit
     (pending / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -199,10 +248,20 @@ def main() -> None:
     parser.add_argument("--a2-dir", required=True, type=Path)
     parser.add_argument("--m1-manifest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--b2-dir", type=Path)
+    parser.add_argument("--b2-input-manifest", type=Path)
+    parser.add_argument("--b2-input-quality", type=Path)
     args = parser.parse_args()
     print(
         json.dumps(
-            build(a2_dir=args.a2_dir, m1_manifest=args.m1_manifest, output=args.output),
+            build(
+                a2_dir=args.a2_dir,
+                m1_manifest=args.m1_manifest,
+                output=args.output,
+                b2_dir=args.b2_dir,
+                b2_input_manifest=args.b2_input_manifest,
+                b2_input_quality=args.b2_input_quality,
+            ),
             ensure_ascii=False,
             indent=2,
         )

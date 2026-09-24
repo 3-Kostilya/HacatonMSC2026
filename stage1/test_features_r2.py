@@ -47,9 +47,7 @@ def _event(minutes: int, state: str, alarm: bool = False, *, excluded: bool = Fa
 
 class R2FeatureTests(unittest.TestCase):
     def test_saved_table_with_pre_r1_rules_is_rejected(self) -> None:
-        table = build_state_history_rows(
-            [_a2_row()], [], source_a2_manifest_sha256="a" * 64
-        )
+        table = build_state_history_rows([_a2_row()], [], source_a2_manifest_sha256="a" * 64)
         index = table.schema.get_field_index("ruleset_version")
         stale = table.set_column(
             index, table.schema.field(index), pa.array(["registered-state-r1-b1-proposal-v1"])
@@ -99,6 +97,30 @@ class R2FeatureTests(unittest.TestCase):
         self.assertEqual(first["last_completed_episode_end_age_seconds"], 24 * 3600)
         self.assertEqual(first["completed_episode_count_168h"], 1)
         self.assertEqual(first["completed_episode_mean_duration_seconds_168h"], 3600)
+        self.assertEqual(first["episode_history_status"], "unambiguous_completed_only")
+
+    def test_completed_episode_age_does_not_cross_missing_2021(self) -> None:
+        row = _a2_row()
+        row["prediction_time"] = datetime(2022, 1, 2)
+        old = CompletedEpisode("smoke-1", datetime(2020, 12, 30), datetime(2020, 12, 31))
+        result = build_state_history_rows(
+            [row],
+            [],
+            source_a2_manifest_sha256="a" * 64,
+            completed_episodes=[old],
+        ).to_pylist()[0]
+        self.assertIsNone(result["last_completed_episode_end_age_seconds"])
+        self.assertEqual(result["completed_episode_count_168h"], 0)
+
+    def test_cross_archive_episode_is_rejected(self) -> None:
+        invalid = CompletedEpisode("smoke-1", datetime(2020, 12, 31), datetime(2022, 1, 1))
+        with self.assertRaisesRegex(ValueError, "archive boundary"):
+            build_state_history_rows(
+                [_a2_row()],
+                [],
+                source_a2_manifest_sha256="a" * 64,
+                completed_episodes=[invalid],
+            )
 
     def test_insufficient_history_does_not_become_eligible(self) -> None:
         row = _a2_row()
