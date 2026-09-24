@@ -183,8 +183,39 @@ def build_month(
     start, end = _month_bounds(month)
     month_dir = output_root / f"year={start.year}" / f"month={start.month:02d}"
     pending = month_dir.with_name(month_dir.name + ".inprogress")
-    if month_dir.exists() or pending.exists():
-        raise FileExistsError("full R3 month or its .inprogress directory exists")
+    if pending.exists():
+        raise FileExistsError("inspect existing full R3 .inprogress directory before retry")
+    if month_dir.exists():
+        path = month_dir / "manifest.json"
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            existing.get("status") != "complete_month"
+            or existing.get("schema_version") != FULL_PACK_VERSION
+            or existing.get("month") != month
+            or existing.get("source_m1_manifest_sha256") != _sha256(m1_manifest)
+            or existing.get("source_population_manifest_sha256") != _sha256(
+                population_dir / "manifest.json"
+            )
+            or existing.get("source_b2_catalog_manifest_sha256") != _sha256(
+                b2_dir / "manifest.json"
+            )
+        ):
+            raise ValueError("existing full R3 month has different lineage")
+        for name, schema in (
+            ("features.parquet", FEATURE_PACK_SCHEMA),
+            ("row_status.parquet", ROW_STATUS_SCHEMA),
+        ):
+            file = month_dir / name
+            expected = existing["files"][name]
+            parquet = pq.ParquetFile(file)
+            if (
+                _sha256(file) != expected["sha256"]
+                or parquet.metadata.num_rows != existing["row_count"]
+                or not parquet.schema_arrow.equals(schema, check_metadata=False)
+            ):
+                raise ValueError(f"existing full R3 month file differs: {file}")
+        print(f"{month}: reuse verified complete month", flush=True)
+        return existing
     m1 = json.loads(m1_manifest.read_text(encoding="utf-8"))
     if m1.get("status") != "complete" or m1.get("scope") != "full_supplied_sources":
         raise ValueError("full R3 month requires completed full M1")

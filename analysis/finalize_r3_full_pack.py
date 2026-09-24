@@ -50,6 +50,7 @@ def finalize(*, output_root: Path, population_dir: Path, m1_manifest: Path,
     population_dir = population_dir.resolve()
     m1_manifest = m1_manifest.resolve()
     b2_manifest = b2_manifest.resolve()
+    b2 = json.loads(b2_manifest.read_text(encoding="utf-8"))
     manifest_path = output_root / "manifest.json"
     if manifest_path.exists():
         raise FileExistsError("full R3 A pack already has a published manifest")
@@ -135,9 +136,6 @@ def finalize(*, output_root: Path, population_dir: Path, m1_manifest: Path,
     }
     allowlist_path = output_root / "model_feature_allowlist.json"
     report_path = output_root / "report.json"
-    for path in (allowlist_path, report_path):
-        if path.exists():
-            raise FileExistsError(f"full R3 top-level file already exists: {path}")
     report = {
         "schema_version": FULL_PACK_VERSION,
         "population_version": POPULATION_VERSION,
@@ -158,14 +156,25 @@ def finalize(*, output_root: Path, population_dir: Path, m1_manifest: Path,
             "Archive completeness remains a conditional assumption, not verified channel continuity.",
         ],
     }
-    allowlist_path.write_text(json.dumps(allowlist, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    for path, payload in ((allowlist_path, allowlist), (report_path, report)):
+        content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+        if path.exists():
+            if path.read_text(encoding="utf-8") != content:
+                raise ValueError(f"existing full R3 top-level file differs: {path}")
+        else:
+            path.write_text(content, encoding="utf-8")
+    source_fingerprint = ":".join((
+        _sha256(m1_manifest), _sha256(population_manifest_path), _sha256(b2_manifest),
+        FULL_PACK_VERSION,
+    ))
     manifest = {
         "schema_version": FULL_PACK_VERSION,
         "status": "complete",
         "created_utc": datetime.now(timezone.utc).isoformat(),
+        "run_id": "r3full-" + hashlib.sha256(source_fingerprint.encode("utf-8")).hexdigest()[:16],
         "purpose": "full_causal_population_unlabeled",
         "not_training_ready": True,
+        "ruleset_version": b2["ruleset_version"],
         "source_m1_manifest_sha256": _sha256(m1_manifest),
         "source_population_manifest_sha256": _sha256(population_manifest_path),
         "source_b2_catalog_manifest_sha256": _sha256(b2_manifest),
