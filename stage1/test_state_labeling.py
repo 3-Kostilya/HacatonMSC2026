@@ -120,7 +120,9 @@ class StateLabelingTests(unittest.TestCase):
 
     def test_scope_and_rule_inventory_are_versioned(self):
         self.assertEqual(len(DICTIONARY_PAIRS), 54)
-        self.assertEqual(TARGET_DEFINITION["status"], "proposed_pending_joint_r1_review")
+        self.assertEqual(TARGET_DEFINITION["status"], "accepted_operational_archive_assumption")
+        self.assertEqual(TARGET_DEFINITION["coverage_assumption"],
+                         "archive_complete_assumed_not_channel_continuity_verified")
         self.assertEqual(TARGET_DEFINITION["horizon_hours"], 24)
         self.assertFalse(in_scope_year(2021))
         self.assertTrue(all(in_scope_year(y) for y in (2019, 2020, 2022, 2023, 2024, 2025, 2026)))

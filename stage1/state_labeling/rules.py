@@ -1,8 +1,8 @@
-"""R1/B1 proposal: interpret explicit messages without treating alarm as a fault label.
+"""R1/B1 semantics: interpret explicit messages independently from alarm.
 
 Dictionary matches are candidates: the supplied CSV has no channel-to-state-set
 key. Only the exact project rule for a known channel type selects the first
-registered-state target. These rules do not build episodes or training labels.
+registered-state target. Episode and training-label rules live in separate modules.
 """
 
 from __future__ import annotations
@@ -13,15 +13,24 @@ import hashlib
 from pathlib import Path
 
 
-RULESET_VERSION = "registered-state-r1-b1-proposal-v1"
+RULESET_VERSION = "registered-state-r1-operational-v2"
 STATE_DICTIONARY_SHA256 = "b968f3652ed33fd6e0d2dccee334275436dada67f4549763cfb4b2072108b5cc"
 TARGET_DEFINITION = {
     "version": RULESET_VERSION,
-    "status": "proposed_pending_joint_r1_review",
+    "status": "accepted_operational_archive_assumption",
     "target_kind": "registered_neispraven_onset",
     "message_text": "Неисправен",
     "horizon_hours": 24,
     "included_years": (2019, 2020, 2022, 2023, 2024, 2025, 2026),
+    "archive_segments": (
+        ("2019-01-01T00:00:00", "2021-01-01T00:00:00"),
+        ("2022-01-01T00:00:00", "2026-07-01T00:00:00"),
+    ),
+    "source_policy": "seven_full_ext_journal_archives_only",
+    "coverage_assumption": "archive_complete_assumed_not_channel_continuity_verified",
+    "recent_normal_hours": 168,
+    "recovery_rule": "one_exact_norma_same_channel_no_same_second_conflict",
+    "unknown_type_policy": "unknown_not_positive",
     "future_window": "(prediction_time, prediction_time + 24h]",
     "meaning": "new registered message episode, not verified physical failure",
     "source": "project_rule",
@@ -231,6 +240,7 @@ def review_dictionary(path: Path) -> dict:
         )
     return {
         "ruleset_version": RULESET_VERSION,
+        "target_status": TARGET_DEFINITION["status"],
         "dictionary_sha256": digest,
         "expected_dictionary_sha256": STATE_DICTIONARY_SHA256,
         "dictionary_hash_matches": digest == STATE_DICTIONARY_SHA256,
@@ -243,5 +253,6 @@ def review_dictionary(path: Path) -> dict:
         "contradictory_type_set_states": contradictions,
         "multiple_candidate_sets": multiple_sets,
         "review_rows": review_rows,
+        "dictionary_review_complete": not missing and not extra and digest == STATE_DICTIONARY_SHA256,
         "ready_for_joint_review": not missing and not extra and digest == STATE_DICTIONARY_SHA256,
     }

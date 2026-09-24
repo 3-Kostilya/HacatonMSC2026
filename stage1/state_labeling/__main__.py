@@ -1,4 +1,4 @@
-"""Read-only review of the state CSV against the R1/B1 proposal."""
+"""Read-only review of the supplied state CSV against R1 semantic rules."""
 
 from __future__ import annotations
 
