@@ -164,6 +164,7 @@ def build_state_history_rows(
     *,
     source_a2_manifest_sha256: str,
     completed_episodes: Iterable[CompletedEpisode] | None = None,
+    validate: bool = True,
 ) -> pa.Table:
     """Create one R2 supplement per A2 row using only event/episode history <= t."""
 
@@ -241,7 +242,8 @@ def build_state_history_rows(
         )
         output.append(result)
     table = pa.Table.from_pylist(output, schema=R2_STATE_SCHEMA)
-    validate_r2_table(table)
+    if validate:
+        validate_r2_table(table)
     return table
 
 
