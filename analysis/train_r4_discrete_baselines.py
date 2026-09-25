@@ -39,6 +39,14 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_pinned_text(path: Path) -> str:
+    """Hash Git text using the CRLF bytes pinned by the R3 contract."""
+    raw = path.read_bytes()
+    normalized = raw.replace(b"\r\n", b"\n")
+    if b"\r" in normalized:
+        raise ValueError("unsupported carriage return in pinned Git text")
+    return hashlib.sha256(normalized.replace(b"\n", b"\r\n")).hexdigest()
+
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
@@ -61,7 +69,10 @@ def verify_inputs(contract_path: Path, allowlist_path: Path, a3_dir: Path,
         (index_dir / "manifest.json", "source_admission_manifest_sha256"),
     )
     for path, field in expected:
-        if sha256(path) != contract[field]:
+        matches = (sha256_pinned_text(path) == contract[field]
+                   if field == "feature_allowlist_sha256"
+                   else sha256(path) == contract[field])
+        if not matches:
             raise ValueError(f"R3 source hash differs: {path}")
     names = allowlist["feature_names"]
     if (allowlist["schema_version"] != contract["feature_allowlist_version"]
@@ -315,7 +326,7 @@ def run(*, contract_path: Path, allowlist_path: Path, a3_dir: Path,
     report = {
         "schema_version": "r4-conditional-discrete-baselines-v1",
         "status": "validation_only",
-        "r3_contract_sha256": sha256(contract_path),
+        "r3_contract_sha256": sha256_pinned_text(contract_path),
         "r3_admission_manifest_sha256": contract["source_admission_manifest_sha256"],
         "feature_allowlist_sha256": contract["feature_allowlist_sha256"],
         "train_negative_sample_per_10000": negative_sample_per_10000,

@@ -28,7 +28,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from analysis.train_r4_discrete_baselines import (  # noqa: E402
-    clean_numeric, read_json, rule_score, sha256, verify_inputs,
+    clean_numeric, read_json, rule_score, sha256, sha256_pinned_text, verify_inputs,
 )
 from ml.forecast.alert_eval import evaluate_alerts  # noqa: E402
 from stage1.state_labeling.rules import TARGET_DEFINITION  # noqa: E402
@@ -158,8 +158,8 @@ def run(*, contract_path: Path, allowlist_path: Path, a3_dir: Path,
         ("catboost.cbm", "catboost_sha256"),
     )
     if (r4_report["status"] != "validation_only"
-            or r4_report["r3_contract_sha256"] != sha256(contract_path)
-            or r4_manifest["r3_contract_sha256"] != sha256(contract_path)
+            or r4_report["r3_contract_sha256"] != sha256_pinned_text(contract_path)
+            or r4_manifest["r3_contract_sha256"] != sha256_pinned_text(contract_path)
             or any(sha256(model_dir / file) != r4_manifest[field] for file, field in expected)):
         raise ValueError("R4 model artifact lineage differs")
     logistic = joblib.load(model_dir / "logistic_regression.joblib")
@@ -318,7 +318,7 @@ def run(*, contract_path: Path, allowlist_path: Path, a3_dir: Path,
     report = {
         "schema_version": "r4-b-validation-audit-v1",
         "status": "validation_only_b_review",
-        "source_r3_contract_sha256": sha256(contract_path),
+        "source_r3_contract_sha256": sha256_pinned_text(contract_path),
         "source_r4_model_manifest_sha256": sha256(model_dir / "manifest.json"),
         "source_b2_catalog_manifest_sha256": sha256(b2_dir / "manifest.json"),
         "validation_rows": len(full),
