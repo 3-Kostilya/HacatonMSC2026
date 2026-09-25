@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
 import sys
+import tempfile
 import time
 from typing import Any, Iterator
 
@@ -107,21 +109,37 @@ def _prediction_times(intervals: list[tuple[datetime, datetime]]) -> list[dateti
     ]
 
 
+@contextmanager
+def _duckdb_connection() -> Iterator[duckdb.DuckDBPyConnection]:
+    """Keep concurrent month processes from sharing DuckDB spill files."""
+    temp_root = ROOT / "output" / "r3-duckdb-temp"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    if not temp_root.resolve().is_relative_to(ROOT.resolve()):
+        raise ValueError("DuckDB temporary root must be inside the workspace")
+    with tempfile.TemporaryDirectory(
+        prefix="month-", dir=temp_root, ignore_cleanup_errors=True
+    ) as temporary:
+        database = duckdb.connect(":memory:", config={"temp_directory": temporary})
+        try:
+            yield database
+        finally:
+            database.close()
+
+
 def _channel_events(
     files: list[Path], channels: list[str], start: datetime, end: datetime
 ) -> Iterator[tuple[str, list[FeatureEvent]]]:
-    database = duckdb.connect(":memory:")
-    database.execute("SET memory_limit='4GB'")
-    database.execute("SET threads=2")
-    # A hash semi-join is essential here: channel_id = ANY(?) becomes extremely
-    # slow for thousands of selected channels on the full M1 monthly Parquet.
-    database.execute(
-        "CREATE TEMP TABLE selected_channels AS SELECT UNNEST(?::VARCHAR[]) AS channel_id",
-        [channels],
-    )
-    current: str | None = None
-    events: list[FeatureEvent] = []
-    try:
+    with _duckdb_connection() as database:
+        database.execute("SET memory_limit='4GB'")
+        database.execute("SET threads=2")
+        # A hash semi-join is essential here: channel_id = ANY(?) becomes extremely
+        # slow for thousands of selected channels on the full M1 monthly Parquet.
+        database.execute(
+            "CREATE TEMP TABLE selected_channels AS SELECT UNNEST(?::VARCHAR[]) AS channel_id",
+            [channels],
+        )
+        current: str | None = None
+        events: list[FeatureEvent] = []
         reader = database.execute(
             """SELECT row_id, channel_id, timestamp, alarm, value_numeric,
                       value_state, sensor_type, object_id, join_status, quality_flags,
@@ -143,8 +161,6 @@ def _channel_events(
                     events.append(FeatureEvent.from_clean_record(row))
         if current is not None:
             yield current, events
-    finally:
-        database.close()
 
 
 def _project(a2_rows: list[dict], r2_rows: list[dict]) -> tuple[pa.Table, pa.Table]:

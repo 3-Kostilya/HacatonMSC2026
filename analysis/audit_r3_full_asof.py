@@ -119,6 +119,10 @@ def audit(*, m1_manifest: Path, b2_dir: Path, month_dir: Path,
         "source_month_manifest_sha256": _sha256(manifest_path),
         "sampled_rows": len(samples),
         "sampled_channels": len(channels),
+        "sampled_completed_episode_rows": sum(
+            row["last_completed_episode_end_age_seconds"] is not None
+            for row in samples
+        ),
         "failures": failures,
         "passed": not failures,
     }
