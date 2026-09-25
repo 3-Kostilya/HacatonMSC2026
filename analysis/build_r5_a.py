@@ -79,22 +79,29 @@ def _load_joined(a3: Path, month: str, keys: pd.DataFrame) -> pd.DataFrame:
     # Read only admitted keys. A full A3 month can be much larger than its
     # R3 candidate subset and needlessly exhaust memory during conversion.
     projection = ", ".join(f'f."{name}"' for name in INPUT_COLUMNS)
+    ordered_keys = keys.assign(_key_order=np.arange(len(keys), dtype=np.int64))
     with duckdb.connect(":memory:") as database:
         database.execute("SET threads=2")
-        database.register("candidate_keys", keys)
+        database.register("candidate_keys", ordered_keys)
         joined = database.execute(
             f"""SELECT k.channel_id, k.prediction_time,
                        k.sensor_type AS sensor_type_b, k.split,
                        f.sensor_type, {projection}
                 FROM candidate_keys AS k
                 LEFT JOIN read_parquet(?) AS f
-                  USING (channel_id, prediction_time)""",
+                  USING (channel_id, prediction_time)
+                ORDER BY k._key_order""",
             [str(_month_path(a3, month, "features.parquet"))],
         ).fetch_df()
     if len(joined) != len(keys) or joined["sensor_type"].isna().any():
         raise ValueError(f"A3/B candidate key mismatch in {month}")
     if not joined["sensor_type_b"].fillna("<null>").eq(joined["sensor_type"].fillna("<null>")).all():
         raise ValueError(f"A3/B sensor type mismatch in {month}")
+    # Arrow's nullable integer fields become float64 in the original pandas
+    # read path. Preserve that representation for identical model fitting.
+    for name in ("state_transitions_1h", "state_transitions_6h",
+                 "state_transitions_24h", "state_transitions_168h"):
+        joined[name] = joined[name].astype("float64")
     return joined.drop(columns=["sensor_type_b"])
 
 
