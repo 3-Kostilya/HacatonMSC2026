@@ -1,0 +1,27 @@
+{
+  "schema_version": "r4-b-validation-baseline-decision-v1",
+  "status": "b_review_complete_pending_a_batch_replay",
+  "selected_method": "past_registered_state_rule",
+  "selected_rule_version": "r4-b-past-state-counts-v1",
+  "task": "future_registered_neispraven_journal_episode_within_24h",
+  "physical_failure_claim": false,
+  "archive_completeness": "conditional_operational_assumption",
+  "selected_feature_branch": "discrete",
+  "rule_terms": {
+    "registered_fault_text_count_24h": 2.0,
+    "registered_fault_text_count_168h": 0.5,
+    "completed_episode_count_168h": 1.0,
+    "technical_message_count_24h": 0.1
+  },
+  "per_channel_warning_cooldown_hours": 24,
+  "validation_only_candidate_threshold": 6.1,
+  "final_threshold": null,
+  "test_scores_or_labels_evaluated": false,
+  "source_r3_contract_sha256": "c3dd160446e22fb6072b6ef10d331edc31d409ad5b2e3705bd7c5aa95e9eff36",
+  "source_feature_allowlist_sha256": "201913367eab87800fa9921e92b6bf6a9aa52cf9dd595b4ede3c3c009abfac0a",
+  "source_r4_baselines_manifest_sha256": "ca15de6632bc64bc3f31b8ea8ba51b11530e0df69da7d3da03cd7b15a0dc93d3",
+  "source_r4_validation_audit_manifest_sha256": "22794b9ec9acd9de8caa0a6cb59abf19b12a1be67feefb629301cca9d570545d",
+  "source_r4_budget_comparison_manifest_sha256": "5469e21693f644f4cedc9210267478adb3ab2a885792565dc01fe1a88dca29a8",
+  "source_r4_stability_manifest_sha256": "61cf171034d503c04b728a0540de6dcfb843bf70ac097c0113ade9bf2ed03a0f",
+  "source_r4_raw_trace_manifest_sha256": "92e41283ac77785591f1236a79124bd806a79aeb6f18cce38f6fe959f6a7a8e3"
+}
