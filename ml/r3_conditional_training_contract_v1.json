@@ -1,0 +1,20 @@
+{
+  "schema_version": "r3-conditional-training-contract-v1",
+  "status": "jointly_accepted_conditional",
+  "accepted_for_training": true,
+  "prediction_target": "future_registered_neispraven_journal_message_within_24h",
+  "physical_failure_claim": false,
+  "archive_completeness": "operational_assumption",
+  "channel_continuity": "unverified",
+  "availability_status": "unknown_preserved",
+  "admission_rule_version": "r3-b-conditional-discrete-v1",
+  "source_admission_manifest_sha256": "b7c4c926599b3722b723c432b85433d18e0a1ebf3fe26821eb51753524d4e062",
+  "feature_allowlist_version": "r3-a-discrete-baseline-features-v1",
+  "feature_allowlist_sha256": "201913367eab87800fa9921e92b6bf6a9aa52cf9dd595b4ede3c3c009abfac0a",
+  "source_a3_manifest_sha256": "e028c1043c5ae7ee8770c1ef3489dd3bcb77370f8021a41f8ed21715bce5f172",
+  "source_b3_manifest_sha256": "f5bf90b3f5878a749e12d1cfd7f36b843c6e97d38f2c033c1af1f6672d9332f9",
+  "candidate_rows": 9188862,
+  "candidate_months": 78,
+  "feature_count": 51,
+  "sealed_test_for_model_selection": true
+}
