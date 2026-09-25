@@ -13,6 +13,7 @@ from typing import Any
 
 from stage1.contracts import NormalizedEvent
 from stage1.features.schema import WINDOW_HOURS
+from stage1.value_quality import assess_value
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,9 @@ class FeatureEvent:
     object_id: str | None = None
     join_status: str | None = None
     quality_flags: tuple[str, ...] = ()
+    qa_value_category: str | None = None
+    numeric_measurement_usable: bool = True
+    state_transition_usable: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.channel_id, str) or not self.channel_id.strip():
@@ -43,7 +47,17 @@ class FeatureEvent:
             object.__setattr__(self, "quality_flags", tuple(self.quality_flags))
 
     @classmethod
-    def from_normalized(cls, event: NormalizedEvent) -> FeatureEvent:
+    def from_normalized(
+        cls,
+        event: NormalizedEvent,
+        *,
+        apply_qa_value_policy: bool = False,
+    ) -> FeatureEvent:
+        assessment = (
+            assess_value(event.sensor_type, event.raw_value, event.numeric_value)
+            if apply_qa_value_policy
+            else None
+        )
         return cls(
             channel_id=event.channel_id,
             timestamp=event.timestamp,
@@ -53,14 +67,31 @@ class FeatureEvent:
             sensor_type=event.sensor_type,
             object_id=event.object_id,
             quality_flags=tuple(event.quality_flags),
+            qa_value_category=assessment.category if assessment else None,
+            numeric_measurement_usable=(
+                assessment.numeric_measurement_usable if assessment else True
+            ),
+            state_transition_usable=(assessment.state_transition_usable if assessment else True),
         )
 
     @classmethod
-    def from_clean_record(cls, record: Mapping[str, Any]) -> FeatureEvent:
+    def from_clean_record(
+        cls,
+        record: Mapping[str, Any],
+        *,
+        apply_qa_value_policy: bool = False,
+    ) -> FeatureEvent:
         numeric = record.get("value_numeric")
         state = record.get("value_state")
         if numeric is None and state is None:
             state = record.get("value_raw")
+        assessment = (
+            assess_value(
+                record.get("sensor_type"), str(record.get("value_raw") or state or ""), numeric
+            )
+            if apply_qa_value_policy
+            else None
+        )
         return cls(
             channel_id=record["channel_id"],
             timestamp=record["timestamp"],
@@ -71,6 +102,11 @@ class FeatureEvent:
             object_id=record.get("object_id"),
             join_status=record.get("join_status"),
             quality_flags=tuple(record.get("quality_flags") or ()),
+            qa_value_category=assessment.category if assessment else None,
+            numeric_measurement_usable=(
+                assessment.numeric_measurement_usable if assessment else True
+            ),
+            state_transition_usable=(assessment.state_transition_usable if assessment else True),
         )
 
 
@@ -138,7 +174,9 @@ def _numeric_features(events: list[FeatureEvent]) -> dict[str, float | None]:
         "numeric_slope_per_hour",
     )
     numeric = [
-        (item.timestamp, item.value_numeric) for item in events if item.value_numeric is not None
+        (item.timestamp, item.value_numeric)
+        for item in events
+        if item.value_numeric is not None and item.numeric_measurement_usable
     ]
     if not numeric:
         return dict.fromkeys(names)
@@ -178,7 +216,11 @@ def _numeric_features(events: list[FeatureEvent]) -> dict[str, float | None]:
 
 
 def _state_features(events: list[FeatureEvent]) -> tuple[int | None, int | None, bool]:
-    states = [(item.timestamp, item.value_state) for item in events if item.value_state is not None]
+    states = [
+        (item.timestamp, item.value_state)
+        for item in events
+        if item.value_state is not None and item.state_transition_usable
+    ]
     if not states:
         return None, None, False
     by_time: dict[datetime, set[str]] = defaultdict(set)
@@ -211,8 +253,14 @@ def _window_features(
     ]
     excluded_count = len(events) - len(usable)
     unique_times = sorted({item.timestamp for item in usable})
-    numeric = [item for item in usable if item.value_numeric is not None]
-    states = [item for item in usable if item.value_state is not None]
+    numeric = [
+        item
+        for item in usable
+        if item.value_numeric is not None and item.numeric_measurement_usable
+    ]
+    states = [
+        item for item in usable if item.value_state is not None and item.state_transition_usable
+    ]
     transitions, distinct_count, ambiguity = _state_features(states)
     maximum_gap = None
     if unique_times:
@@ -275,8 +323,16 @@ def _baseline_features(
         if start < item.timestamp < fit_end_at
         and not config.excluded_quality_flags.intersection(item.quality_flags)
     ]
-    numeric = [item.value_numeric for item in baseline if item.value_numeric is not None]
-    states = [item.value_state for item in baseline if item.value_state is not None]
+    numeric = [
+        item.value_numeric
+        for item in baseline
+        if item.value_numeric is not None and item.numeric_measurement_usable
+    ]
+    states = [
+        item.value_state
+        for item in baseline
+        if item.value_state is not None and item.state_transition_usable
+    ]
     reasons: list[str] = []
     if len(baseline) < config.minimum_baseline_events:
         reasons.append("insufficient_baseline_events")

@@ -57,9 +57,9 @@
       "modes": {"numeric": "primary", "discrete": "supplemental", "context": "supplemental"},
       "features": ["numeric_level_shift", "numeric_variance_shift", "numeric_drift", "numeric_spike", "numeric_flatline", "sequence_novelty", "power_state_context"],
       "mandatory_checks": ["value_format_audit", "timestamp_conflict_audit", "history_sufficiency", "observability_audit", "technical_values_separate", "units_required_for_cross_channel", "cadence_required_for_duration", "environment_vs_sensor", "cause_remains_hypothesis"],
-      "unknown_if": ["неизвестен измеряемый газ", "неизвестны единицы и шкала", "нельзя отличить периодический опрос от записи изменений"],
-      "inapplicability_rule": "Абсолютные пороги и сравнение каналов неприменимы до подтверждения газа, единиц и шкалы; внутриканальная безразмерная динамика допустима.",
-      "interpretation_guard": "Рост показаний может быть реальным изменением среды; он не доказывает отказ."
+      "unknown_if": ["тип газа или шкала конкретного канала противоречат подтверждённой метановой интерпретации", "нельзя отличить периодический опрос от записи изменений", "значение является техническим кодом или невалидным измерением"],
+      "inapplicability_rule": "Для подтверждённых метановых каналов число выражает объёмные проценты метана; 1% — кандидат порога тревоги среды, не порог отказа датчика. Межканальное сравнение и физическую трактовку конкретного канала не применять при противоречии его шкалы или назначения.",
+      "interpretation_guard": "Рост метана может отражать реальное изменение среды; он не доказывает отказ. Числовой уровень 1% не переводить автоматически в целевую метку, даже когда alarm=false."
     },
     {
       "sensor_type": "Датчик дыма",
