@@ -13,6 +13,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import duckdb
 import joblib
 import numpy as np
 import pandas as pd
@@ -75,8 +76,21 @@ def _load_keys(root: Path, month: str) -> pd.DataFrame:
 
 
 def _load_joined(a3: Path, month: str, keys: pd.DataFrame) -> pd.DataFrame:
-    source = pq.read_table(_month_path(a3, month, "features.parquet"), columns=SOURCE_COLUMNS).to_pandas()
-    joined = keys.merge(source, on=KEYS, how="left", validate="one_to_one", suffixes=("_b", ""))
+    # Read only admitted keys. A full A3 month can be much larger than its
+    # R3 candidate subset and needlessly exhaust memory during conversion.
+    projection = ", ".join(f'f."{name}"' for name in INPUT_COLUMNS)
+    with duckdb.connect(":memory:") as database:
+        database.execute("SET threads=2")
+        database.register("candidate_keys", keys)
+        joined = database.execute(
+            f"""SELECT k.channel_id, k.prediction_time,
+                       k.sensor_type AS sensor_type_b, k.split,
+                       f.sensor_type, {projection}
+                FROM candidate_keys AS k
+                LEFT JOIN read_parquet(?) AS f
+                  USING (channel_id, prediction_time)""",
+            [str(_month_path(a3, month, "features.parquet"))],
+        ).fetch_df()
     if len(joined) != len(keys) or joined["sensor_type"].isna().any():
         raise ValueError(f"A3/B candidate key mismatch in {month}")
     if not joined["sensor_type_b"].fillna("<null>").eq(joined["sensor_type"].fillna("<null>")).all():
