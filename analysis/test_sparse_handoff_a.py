@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import duckdb
@@ -14,7 +15,7 @@ import pyarrow.parquet as pq
 from analysis.build_sparse_population_a import VERSION, resume_provenance, reuse_month, verify_month
 from analysis.package_sparse_population_a import package_handoff
 from analysis.train_r4_discrete_baselines import sha256
-from analysis.verify_sparse_population_a import active_package, month_snapshots
+from analysis.verify_sparse_population_a import active_package, await_json, month_snapshots
 from analysis.build_quality_improvement_a import expected_months
 
 
@@ -98,6 +99,15 @@ class SparseHandoffTests(unittest.TestCase):
             self.assertEqual(len(snapshots), 72)
             self.assertEqual([(r["month"], r["manifest_sha256"]) for _, r in snapshots],
                              [(r["month"], r["manifest_sha256"]) for r in items])
+
+    def test_last_month_waits_for_published_root_not_pending_manifest(self):
+        with TemporaryDirectory() as temporary:
+            package = Path(temporary) / "result"
+            package.with_name("result.inprogress").mkdir()
+            with patch("analysis.verify_sparse_population_a.read_json", return_value={}) as reader:
+                actual, _ = await_json(package, "manifest.json", published_only=True)
+                self.assertEqual(actual, package)
+                reader.assert_called_once_with(package / "manifest.json")
 
     def test_export_rejects_missing_or_ineligible_features(self):
         with TemporaryDirectory() as temporary, duckdb.connect() as db:

@@ -29,11 +29,11 @@ def active_package(package):
     return package if package.exists() else package.with_name(package.name + ".inprogress")
 
 
-def await_json(package, relative):
+def await_json(package, relative, *, published_only=False):
     """Wait for a completed builder file; the final root is renamed atomically."""
     deadline = time.monotonic() + 900
     while time.monotonic() < deadline:
-        root = active_package(package)
+        root = package if published_only else active_package(package)
         path = root / relative
         try:
             return root, read_json(path)
@@ -55,7 +55,7 @@ def month_snapshots(package, follow_build):
         relative = f"year={label[:4]}/month={label[5:]}/manifest.json"
         if label == months[-1]:
             # Do not keep Parquet files open across the builder's final rename.
-            await_json(package, "manifest.json")
+            await_json(package, "manifest.json", published_only=True)
         root, item = await_json(package, relative)
         yield root, {**item, "manifest_file": relative, "manifest_sha256": sha256(root / relative)}
 

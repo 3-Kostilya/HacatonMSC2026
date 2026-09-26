@@ -116,7 +116,7 @@ def reuse_month(db, resume_dir, directory, month, expected, feature_names):
 
 
 def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
-          memory_limit="6GB", resume_from=None, resume_builder_revision=None):
+          memory_limit="6GB", threads=2, resume_from=None, resume_builder_revision=None):
     begun = time.perf_counter()
     q1 = read_json(Path("ml/quality_improvement_feature_contract_v1.json"))
     base = read_json(Path("ml/r3_discrete_feature_allowlist_v1.json"))
@@ -183,11 +183,13 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
                 reusable.add(label)
     if not re.fullmatch(r"[1-9][0-9]*(MB|GB)", memory_limit):
         raise ValueError("memory limit must be an explicit positive MB/GB quantity")
+    if type(threads) is not int or not 1 <= threads <= 8:
+        raise ValueError("threads must be an integer between one and eight")
     proofs = []
     months = []
     totals = defaultdict(Counter)
     with duckdb.connect(config={"temp_directory": str(pending / "db-spill")}) as db:
-        db.execute("SET threads=2")
+        db.execute(f"SET threads={threads}")
         db.execute("SET memory_limit=" + quoted(memory_limit))
         db.execute("SET preserve_insertion_order=false")
         print("building full causal M1 state prefixes", flush=True)
@@ -199,6 +201,10 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
             flush=True,
         )
         qa_summary = create_qa_prefixes(db, m1_files)
+        # These construction tables are no longer used by monthly inference.
+        # Keeping them competes with the large sorting/join buffers.
+        for unused in ("text_groups", "first_history", "first_types", "ambiguities", "qa_events"):
+            db.execute(f"DROP TABLE {unused}")
         retain_full_prefixes(db)
         db.execute(
             "CREATE TEMP TABLE corrections AS SELECT * FROM read_parquet(?) "
@@ -212,6 +218,10 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
             raise ValueError("duplicate QA correction key")
         for month in expected_months():
             started = time.perf_counter()
+            # Drop the previous month's materialized payload before allocating
+            # a new one; no state prefix or source input is dropped here.
+            for previous in ("base_features", "decisions", "decisions_without_qa", "qa_month", "keys"):
+                db.execute(f"DROP TABLE IF EXISTS {previous}")
             source = chunks[month]
             month_manifest = safe_path(a3_dir, source["manifest_file"], month=month)
             features = safe_path(a3_dir, source["features_file"], month=month)
@@ -376,6 +386,7 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
             "elapsed_seconds": round(time.perf_counter() - begun, 3),
             "peak_working_set_bytes": getattr(memory, "peak_wset", memory.rss),
             "duckdb_memory_limit": memory_limit,
+            "duckdb_threads": threads,
             "resumed": resume is not None,
             "reused_months": len(reusable),
             "cold_run_timing": resume is None,
@@ -533,6 +544,7 @@ def main():
     for key in ("m1-dir", "a3-dir", "b3-dir", "corrections-dir", "output-dir"):
         parser.add_argument("--" + key, type=Path, required=True)
     parser.add_argument("--memory-limit", default="6GB")
+    parser.add_argument("--threads", type=int, default=2, choices=range(1, 9))
     parser.add_argument("--resume-from", type=Path)
     parser.add_argument("--resume-builder-revision")
     args = parser.parse_args()
@@ -543,6 +555,7 @@ def main():
         corrections_dir=args.corrections_dir,
         output_dir=args.output_dir,
         memory_limit=args.memory_limit,
+        threads=args.threads,
         resume_from=args.resume_from,
         resume_builder_revision=args.resume_builder_revision,
     )
