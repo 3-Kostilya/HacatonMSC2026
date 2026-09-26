@@ -20,7 +20,7 @@ import pyarrow.parquet as pq
 
 from analysis.build_a2_hourly import _monthly_files
 from analysis.build_quality_improvement_a import YEARS, QA_NAMES, expected_months
-from analysis.build_quality_improvement_a import create_qa_prefixes, counts_sql, quoted, safe_path
+from analysis.build_quality_improvement_a import create_qa_prefixes, counts_sql, quoted, safe_path, category_sql
 from analysis.r6_provenance import frozen_rule_sha256
 from analysis.sparse_population_a import build_past_prefixes, decision_sql, finalize_sql
 from analysis.sparse_population_a import retain_full_prefixes, slice_month_prefixes
@@ -346,6 +346,18 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
                 json.dumps({"month": month, **verification, "seconds": report["elapsed_seconds"]}),
                 flush=True,
             )
+    return publish_result(
+        pending=pending, output_dir=output_dir, b3_dir=b3_dir, a3_dir=a3_dir,
+        m1_dir=m1_dir, m1_files=m1_files, pins=pins, months=months, proofs=proofs,
+        source_summary=source_summary, qa_summary=qa_summary, totals=totals,
+        feature_names=feature_names, resume=resume, begun=begun,
+        memory_limit=memory_limit, threads=threads,
+    )
+
+
+def publish_result(*, pending, output_dir, b3_dir, a3_dir, m1_dir, m1_files, pins,
+                   months, proofs, source_summary, qa_summary, totals, feature_names,
+                   resume, begun, memory_limit, threads, publication_recovery=False):
     # The causal phase is closed before any label contents are read.
     diagnosis = audit_labels(pending, b3_dir, a3_dir)
     source_files = [
@@ -388,8 +400,11 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
             "duckdb_memory_limit": memory_limit,
             "duckdb_threads": threads,
             "resumed": resume is not None,
-            "reused_months": len(reusable),
-            "cold_run_timing": resume is None,
+            "reused_months": len(resume["reused_months"]) if resume else 0,
+            "cold_run_timing": resume is None and not publication_recovery,
+            "publication_recovery": publication_recovery,
+            "timing_scope": "publication_recovery_only" if publication_recovery else "current_run",
+            "original_calculation_peak_bytes": None if publication_recovery else getattr(memory, "peak_wset", memory.rss),
         },
     }
     write_json(pending / "report.json", report)
@@ -412,6 +427,93 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
     write_json(pending / "manifest.json", manifest)
     pending.rename(output_dir)
     return report
+
+
+def publish_completed(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
+                      resume_builder_revision):
+    """Recover final diagnostics after all immutable causal monthly outputs exist."""
+    begun = time.perf_counter()
+    pending = output_dir.with_name(output_dir.name + ".inprogress")
+    if output_dir.exists() or not pending.is_dir():
+        raise FileExistsError("publication recovery needs an unpublished completed package")
+    resume = resume_provenance(pending, resume_builder_revision)
+    q1 = read_json(Path("ml/quality_improvement_feature_contract_v1.json"))
+    base = read_json(Path("ml/r3_discrete_feature_allowlist_v1.json"))
+    pins = {"m1": q1["source_m1_manifest_sha256"], "a3": q1["source_a3_manifest_sha256"],
+            "b3": base["source_b3_manifest_sha256"], "corrections": q1["source_qa_correction_features_sha256"]}
+    for path, pin in ((m1_dir / "manifest.json", pins["m1"]),
+                      (a3_dir / "manifest.json", pins["a3"]),
+                      (b3_dir / "manifest.json", pins["b3"]),
+                      (corrections_dir / "feature_corrections.parquet", pins["corrections"])):
+        if sha256(path) != pin:
+            raise ValueError("publication recovery sources differ")
+    allowlist = read_json(pending / "model_feature_allowlist.json")
+    masks = [f"missing__{n}" for n in base["feature_names"] if n != "sensor_type"]
+    names = [*base["feature_names"], *QA_NAMES, *masks]
+    if allowlist["feature_names"] != names or allowlist["training_ready"]:
+        raise ValueError("publication recovery allowlist differs")
+    chunks = {c["month"]: c for c in read_json(a3_dir / "manifest.json")["chunks"]}
+    months, proofs = [], []
+    totals = defaultdict(Counter)
+    m1_files = []
+    for year in YEARS:
+        files, absent = _monthly_files(m1_dir, datetime(year, 1, 1), datetime(year + 1, 1, 1))
+        if absent:
+            raise ValueError("publication recovery is missing M1 months")
+        m1_files.extend(files)
+    # All 72 payloads must be complete; incomplete runs cannot enter the label audit.
+    if not all((pending / f"year={m[:4]}" / f"month={m[5:]}" / "manifest.json").is_file()
+               for m in expected_months()):
+        raise ValueError("publication recovery requires all 72 completed months")
+    with duckdb.connect() as db:
+        db.execute("SET memory_limit='2GB'")
+        db.execute("SET threads=2")
+        for label in expected_months():
+            relative = f"year={label[:4]}/month={label[5:]}/manifest.json"
+            directory = (pending / relative).parent
+            meta = read_json(directory / "manifest.json")
+            if meta["month"] != label or meta["schema_version"] != VERSION:
+                raise ValueError("publication recovery monthly identity differs")
+            for name, info in meta["files"].items():
+                if sha256(directory / name) != info["sha256"]:
+                    raise ValueError("publication recovery monthly content differs")
+            for key, pin in (("manifest_file", "manifest_sha256"), ("features_file", "features_sha256")):
+                path = safe_path(a3_dir, chunks[label][key], month=label)
+                if sha256(path) != chunks[label][pin]:
+                    raise ValueError("publication recovery A3 content differs")
+                proofs.append({"month": label, "file": path.name, "sha256": chunks[label][pin]})
+            db.execute("CREATE OR REPLACE TEMP TABLE decisions AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                       [str(directory / "admission.parquet")])
+            verify_month(db, chunks[label]["rows"], directory / "admission.parquet",
+                         directory / "model_features.parquet", names)
+            for group in meta["groups"]:
+                totals[meta["split"]][f"candidate_{group['candidate']}"] += group["hours"]
+                totals[meta["split"]][f"before_qa_{group['without_qa']}"] += group["hours"]
+            months.append({**meta, "manifest_file": relative,
+                           "manifest_sha256": sha256(directory / "manifest.json")})
+            resume["reused_months"].append(label)
+            print(f"publication recovery verified {label}", flush=True)
+        db.execute("CREATE TEMP VIEW raw AS SELECT * FROM read_parquet(["
+                   + ",".join(quoted(str(p)) for p in m1_files) + "],hive_partitioning=false) "
+                   "WHERE timestamp>=TIMESTAMP '2019-01-01' AND timestamp<TIMESTAMP '2026-01-01' "
+                   "AND year(timestamp)<>2021 AND split_part(replace(source,chr(92),'/'),'/',-1)="
+                   "'ext-journal-' || CAST(year(timestamp) AS VARCHAR) || '.7z'")
+        summary = {
+            "accepted_events": db.execute("SELECT COUNT(*) FROM raw").fetchone()[0],
+            "unique_type_text_pairs": db.execute("SELECT COUNT(*) FROM (SELECT DISTINCT sensor_type,value_state "
+                                                  "FROM raw WHERE value_state IS NOT NULL)").fetchone()[0],
+            "type_changing_channel_segments": db.execute("SELECT COUNT(*) FROM (SELECT channel_id,"
+                "year(timestamp)<2021 FROM raw WHERE sensor_type IS NOT NULL AND sensor_type<>'' "
+                "GROUP BY ALL HAVING COUNT(DISTINCT sensor_type)>1)").fetchone()[0],
+        }
+        qa_summary = dict(db.execute("SELECT category,COUNT(*) FROM (SELECT " + category_sql()
+                                    + " AS category FROM raw) WHERE category IS NOT NULL GROUP BY category").fetchall())
+    return publish_result(
+        pending=pending, output_dir=output_dir, b3_dir=b3_dir, a3_dir=a3_dir,
+        m1_dir=m1_dir, m1_files=m1_files, pins=pins, months=months, proofs=proofs,
+        source_summary=summary, qa_summary=qa_summary, totals=totals, feature_names=names,
+        resume=resume, begun=begun, memory_limit="2GB", threads=2, publication_recovery=True,
+    )
 
 
 def audit_labels(package, b3_dir, a3_dir):
@@ -438,8 +540,8 @@ def audit_labels(package, b3_dir, a3_dir):
             rows = (
                 db.execute(
                     "SELECT l.*,d.* EXCLUDE(channel_id,prediction_time,sensor_type),"
-                    "? AS prediction_month FROM read_parquet(?) l "
-                    "JOIN read_parquet(?) d USING(channel_id,prediction_time) "
+                    "? AS prediction_month FROM read_parquet(?,hive_partitioning=false) l "
+                    "JOIN read_parquet(?,hive_partitioning=false) d USING(channel_id,prediction_time) "
                     "WHERE l.target=1 AND l.label_status='positive' "
                     "AND l.split_status='assigned' AND l.split IN ('train','validation')",
                     [month, str(labels), str(status)],
@@ -547,8 +649,17 @@ def main():
     parser.add_argument("--threads", type=int, default=2, choices=range(1, 9))
     parser.add_argument("--resume-from", type=Path)
     parser.add_argument("--resume-builder-revision")
+    parser.add_argument("--publish-completed", action="store_true",
+                        help="reverify and publish all 72 completed months after a diagnostics-only failure")
     args = parser.parse_args()
-    result = build(
+    if args.publish_completed:
+        result = publish_completed(
+            m1_dir=args.m1_dir, a3_dir=args.a3_dir, b3_dir=args.b3_dir,
+            corrections_dir=args.corrections_dir, output_dir=args.output_dir,
+            resume_builder_revision=args.resume_builder_revision,
+        )
+    else:
+        result = build(
         m1_dir=args.m1_dir,
         a3_dir=args.a3_dir,
         b3_dir=args.b3_dir,
@@ -558,7 +669,7 @@ def main():
         threads=args.threads,
         resume_from=args.resume_from,
         resume_builder_revision=args.resume_builder_revision,
-    )
+        )
     print(
         json.dumps(
             {

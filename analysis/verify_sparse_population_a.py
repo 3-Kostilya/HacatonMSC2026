@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from datetime import datetime
+from dataclasses import replace
 import hashlib
 import json
 from itertools import groupby
@@ -23,6 +24,15 @@ from analysis.r6_provenance import frozen_rule_sha256
 from analysis.train_r4_discrete_baselines import read_json, sha256
 from stage1.features.sparse_admission import SparseAdmissionStream
 from stage1.features.qa_values import qa_window_counts
+from stage1.value_quality import assess_value
+
+
+def qa_counts_from_legacy_events(events, at):
+    """Frozen R6 keeps raw events without QA decoration; assess them independently."""
+    decorated = [replace(event, qa_value_category=assess_value(
+        event.sensor_type, event.value_state or "", event.value_numeric
+    ).category) for event in events]
+    return qa_window_counts(decorated, at)
 
 
 def active_package(package):
@@ -270,6 +280,14 @@ def verify(*, package, m1_dir, a3_dir, b3_dir, corrections_dir, output, follow_b
         )
         if episode_counts != {"train": 7138, "validation": 2142}:
             raise ValueError("episode totals differ from accepted B3")
+        write_json(output.with_name(output.stem + "-export.json"), {
+            "status": "all_monthly_export_checks_passed_raw_replay_pending",
+            "source_manifest_sha256": sha256(package / "manifest.json"),
+            "months": month_results,
+            "decision_rows_checked": sum(r["decision_rows"] for r in month_results),
+            "feature_rows_checked": sum(r["feature_rows"] for r in month_results),
+            "code_lf_sha256": frozen_rule_sha256(Path(__file__)),
+        })
         # Hash-ranked channel subset bounds raw replay costs. It includes the
         # unknown/excluded statuses; no future labels select the audit sample.
         channels = sorted(
@@ -345,10 +363,11 @@ def verify(*, package, m1_dir, a3_dir, b3_dir, corrections_dir, output, follow_b
                     if feature_row is None:
                         raise ValueError("eligible raw-stream check lacks exported features")
                     state = stream._past.channels[actual["channel_id"]]
-                    qa = qa_window_counts(state.events, at)
+                    qa = qa_counts_from_legacy_events(state.events, at)
                     for name in QA_NAMES:
                         if feature_row[name] != qa[name]:
-                            raise ValueError(f"raw-stream/exported QA feature mismatch: {name}")
+                            raise ValueError(f"raw-stream/exported QA feature mismatch: {name} "
+                                f"{actual['channel_id']}@{at}: exported={feature_row[name]}, stream={qa[name]}")
                 checked.append(
                     {
                         "channel_id": actual["channel_id"],

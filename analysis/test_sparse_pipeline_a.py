@@ -12,7 +12,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from analysis.build_quality_improvement_a import expected_months
-from analysis.build_sparse_population_a import audit_labels, build, write_json
+from analysis.build_sparse_population_a import audit_labels, build, publish_completed, write_json
 from analysis.package_sparse_population_a import package_handoff
 from analysis.test_sparse_population_a import row
 from analysis.train_r4_discrete_baselines import read_json, sha256
@@ -46,7 +46,10 @@ class SparsePipelineTests(unittest.TestCase):
                                  "features_file": features.relative_to(a3).as_posix(),
                                  "features_sha256": sha256(features)})
                 split = "validation" if at.year == 2025 else "train"
-                positive = month in {"2020-01", "2025-01"}
+                # Single/double digit Hive month names previously leaked into
+                # diagnostics as mixed str/int types. Explicit Parquet schemas
+                # must be used instead of auto-inferred directory columns.
+                positive = month in {"2020-01", "2020-10", "2025-01", "2025-10"}
                 # Deliberately synthetic immutable labels, read only after inference.
                 label = {"channel_id": "c", "sensor_type": "Датчик дыма", "prediction_time": at,
                          "horizon_end": at + timedelta(hours=24), "target": 1 if positive else None,
@@ -110,6 +113,23 @@ class SparsePipelineTests(unittest.TestCase):
             self.assertFalse(result["test_events_read"])
             self.assertFalse(result["training_ready"])
             self.assertFalse(output.with_name("result.inprogress").exists())
+            positive_table = pq.read_table(output / "positive_hour_diagnostics.parquet")
+            self.assertEqual(positive_table.num_rows, 4)
+            self.assertNotIn("month", positive_table.column_names)
+            self.assertNotIn("year", positive_table.column_names)
+            payloads = {c["month"]: c["files"] for c in result["months"]}
+            output.rename(output.with_name("result.inprogress"))
+            with patch("analysis.build_sparse_population_a.read_json", side_effect=fixture_json), \
+                 patch("analysis.build_sparse_population_a.resume_provenance", return_value={
+                     "directory": str(output.with_name("result.inprogress")),
+                     "git_revision": "a" * 40, "reused_months": [],
+                     "semantic_code_unchanged": True}), redirect_stdout(io.StringIO()):
+                recovered = publish_completed(m1_dir=m1, a3_dir=a3, b3_dir=b3,
+                    corrections_dir=qa, output_dir=output, resume_builder_revision="a" * 40)
+            self.assertEqual(payloads, {c["month"]: c["files"] for c in recovered["months"]})
+            self.assertTrue(recovered["resources"]["publication_recovery"])
+            self.assertFalse(recovered["resources"]["cold_run_timing"])
+            self.assertEqual(recovered["resources"]["reused_months"], 72)
             packaged = package_handoff(output, root / "handoff.zip")
             self.assertEqual(packaged["verified_members"], 221)
 
