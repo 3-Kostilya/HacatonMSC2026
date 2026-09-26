@@ -6,7 +6,11 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
 import json
+import hashlib
 from pathlib import Path
+import re
+import shutil
+import subprocess
 import time
 
 import duckdb
@@ -79,7 +83,40 @@ def verify_month(db, expected, output_file, feature_file, feature_names):
     }
 
 
-def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
+def resume_provenance(root, revision):
+    if not re.fullmatch(r"[0-9a-f]{40}", revision or ""):
+        raise ValueError("resume requires the exact prior builder Git commit")
+    hashes = {}
+    for name in CODE:
+        previous = subprocess.run(
+            ["git", "show", f"{revision}:{name}"], check=True, capture_output=True
+        ).stdout
+        hashes[name] = hashlib.sha256(previous.replace(b"\r\n", b"\n")).hexdigest()
+        if name != "analysis/build_sparse_population_a.py" and hashes[name] != frozen_rule_sha256(Path(name)):
+            raise ValueError("cannot reuse months across changed causal/QA/state code")
+    return {"directory": str(root), "git_revision": revision, "code_lf_sha256": hashes,
+            "reused_months": [], "semantic_code_unchanged": True}
+
+
+def reuse_month(db, resume_dir, directory, month, expected, feature_names):
+    source = resume_dir / f"year={month[:4]}" / f"month={month[5:]}"
+    meta = read_json(source / "manifest.json")
+    if meta["month"] != month or meta["schema_version"] != VERSION:
+        raise ValueError("cached month schema differs")
+    for name in ("admission.parquet", "model_features.parquet"):
+        if sha256(source / name) != meta["files"][name]["sha256"]:
+            raise ValueError("cached month content differs")
+    db.execute("CREATE OR REPLACE TEMP TABLE decisions AS SELECT * FROM read_parquet(?)",
+               [str(source / "admission.parquet")])
+    verify_month(db, expected, source / "admission.parquet", source / "model_features.parquet", feature_names)
+    directory.mkdir(parents=True)
+    for name in ("admission.parquet", "model_features.parquet", "manifest.json"):
+        shutil.copy2(source / name, directory / name)
+    return meta
+
+
+def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir,
+          memory_limit="6GB", resume_from=None, resume_builder_revision=None):
     begun = time.perf_counter()
     q1 = read_json(Path("ml/quality_improvement_feature_contract_v1.json"))
     base = read_json(Path("ml/r3_discrete_feature_allowlist_v1.json"))
@@ -130,12 +167,28 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
         "fit_scope": "train_only",
     }
     write_json(pending / "model_feature_allowlist.json", allowlist)
+    resume = None
+    reusable = set()
+    if resume_from is not None:
+        resume = resume_provenance(resume_from, resume_builder_revision)
+        if read_json(resume_from / "model_feature_allowlist.json") != allowlist:
+            raise ValueError("cached allowlist differs")
+        missing = False
+        for label in expected_months():
+            exists = (resume_from / f"year={label[:4]}" / f"month={label[5:]}" / "manifest.json").exists()
+            if exists and missing:
+                raise ValueError("cached completed months are not a contiguous prefix")
+            missing = missing or not exists
+            if exists:
+                reusable.add(label)
+    if not re.fullmatch(r"[1-9][0-9]*(MB|GB)", memory_limit):
+        raise ValueError("memory limit must be an explicit positive MB/GB quantity")
     proofs = []
     months = []
     totals = defaultdict(Counter)
     with duckdb.connect(config={"temp_directory": str(pending / "db-spill")}) as db:
         db.execute("SET threads=2")
-        db.execute("SET memory_limit='3GB'")
+        db.execute("SET memory_limit=" + quoted(memory_limit))
         db.execute("SET preserve_insertion_order=false")
         print("building full causal M1 state prefixes", flush=True)
         source_summary = build_past_prefixes(db, [str(p) for p in m1_files])
@@ -159,7 +212,6 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
             raise ValueError("duplicate QA correction key")
         for month in expected_months():
             started = time.perf_counter()
-            slice_month_prefixes(db, month)
             source = chunks[month]
             month_manifest = safe_path(a3_dir, source["manifest_file"], month=month)
             features = safe_path(a3_dir, source["features_file"], month=month)
@@ -170,6 +222,19 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
                 if sha256(path) != pin:
                     raise ValueError(f"A3 source hash differs for {month}")
                 proofs.append({"month": month, "file": path.name, "sha256": pin})
+            if month in reusable:
+                directory = pending / f"year={month[:4]}" / f"month={month[5:]}"
+                cached = reuse_month(db, resume_from, directory, month, source["rows"], feature_names)
+                for group in cached["groups"]:
+                    totals[cached["split"]][f"candidate_{group['candidate']}"] += group["hours"]
+                    totals[cached["split"]][f"before_qa_{group['without_qa']}"] += group["hours"]
+                months.append({**cached, "manifest_file": (directory / "manifest.json").relative_to(pending).as_posix(),
+                               "manifest_sha256": sha256(directory / "manifest.json")})
+                resume["reused_months"].append(month)
+                print(json.dumps({"month": month, "reused_and_reverified": True,
+                                  "seconds": round(time.perf_counter()-started, 3)}), flush=True)
+                continue
+            slice_month_prefixes(db, month)
             db.execute(
                 "CREATE OR REPLACE TEMP TABLE keys AS SELECT channel_id,prediction_time,"
                 "CASE WHEN year(prediction_time)<2021 THEN 0 ELSE 1 END AS archive_segment "
@@ -292,6 +357,7 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
         "source_b_review_lf_sha256": frozen_rule_sha256(
             Path("docs/ml-q2-b-sparse-admission-review.md")
         ),
+        "resume_provenance": resume,
         "source_summary": source_summary,
         "qa_category_events": qa_summary,
         "split_totals": {s: dict(v) for s, v in totals.items()},
@@ -309,6 +375,10 @@ def build(*, m1_dir, a3_dir, b3_dir, corrections_dir, output_dir):
         "resources": {
             "elapsed_seconds": round(time.perf_counter() - begun, 3),
             "peak_working_set_bytes": getattr(memory, "peak_wset", memory.rss),
+            "duckdb_memory_limit": memory_limit,
+            "resumed": resume is not None,
+            "reused_months": len(reusable),
+            "cold_run_timing": resume is None,
         },
     }
     write_json(pending / "report.json", report)
@@ -462,6 +532,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ("m1-dir", "a3-dir", "b3-dir", "corrections-dir", "output-dir"):
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--memory-limit", default="6GB")
+    parser.add_argument("--resume-from", type=Path)
+    parser.add_argument("--resume-builder-revision")
     args = parser.parse_args()
     result = build(
         m1_dir=args.m1_dir,
@@ -469,6 +542,9 @@ def main():
         b3_dir=args.b3_dir,
         corrections_dir=args.corrections_dir,
         output_dir=args.output_dir,
+        memory_limit=args.memory_limit,
+        resume_from=args.resume_from,
+        resume_builder_revision=args.resume_builder_revision,
     )
     print(
         json.dumps(

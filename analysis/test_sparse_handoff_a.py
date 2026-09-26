@@ -1,6 +1,7 @@
 """Small handoff/export checks independent of the full local data run."""
 
 import json
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -10,7 +11,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from analysis.build_sparse_population_a import verify_month
+from analysis.build_sparse_population_a import VERSION, resume_provenance, reuse_month, verify_month
 from analysis.package_sparse_population_a import package_handoff
 from analysis.train_r4_discrete_baselines import sha256
 from analysis.verify_sparse_population_a import active_package, month_snapshots
@@ -115,14 +116,34 @@ class SparseHandoffTests(unittest.TestCase):
             db.execute("COPY (SELECT channel_id,prediction_time,sensor_type FROM decisions) "
                        "TO ? (FORMAT PARQUET)", [str(feature_file)])
             self.assertEqual(verify_month(db, 1, admission, feature_file, ["sensor_type"])["feature_rows"], 1)
+            cache = root / "previous"
+            source = cache / "year=2025" / "month=01"
+            source.mkdir(parents=True)
+            shutil.copy2(admission, source / "admission.parquet")
+            shutil.copy2(feature_file, source / "model_features.parquet")
+            meta = {"month": "2025-01", "schema_version": VERSION,
+                    "files": {name: {"sha256": sha256(source / name)} for name in
+                              ("admission.parquet", "model_features.parquet")}}
+            (source / "manifest.json").write_text(json.dumps(meta), encoding="utf-8")
+            restored = root / "restored"
+            self.assertEqual(reuse_month(db, cache, restored, "2025-01", 1, ["sensor_type"]), meta)
+            self.assertEqual(sha256(restored / "admission.parquet"), sha256(admission))
+            pq.write_table(pa.table({"channel_id": ["tampered"]}), source / "admission.parquet")
+            with self.assertRaisesRegex(ValueError, "content differs"):
+                reuse_month(db, cache, root / "invalid", "2025-01", 1, ["sensor_type"])
             db.execute("COPY (SELECT channel_id,prediction_time,sensor_type FROM decisions "
                        "WHERE false) TO ? (FORMAT PARQUET)", [str(feature_file)])
             with self.assertRaises(ValueError):
                 verify_month(db, 1, admission, feature_file, ["sensor_type"])
+
             db.execute("COPY (SELECT 'other' channel_id,prediction_time,sensor_type "
                        "FROM decisions) TO ? (FORMAT PARQUET)", [str(feature_file)])
             with self.assertRaises(ValueError):
                 verify_month(db, 1, admission, feature_file, ["sensor_type"])
+
+    def test_resume_requires_exact_prior_revision(self):
+        with self.assertRaisesRegex(ValueError, "exact prior"):
+            resume_provenance(Path("unused"), "ML")
 
 
 if __name__ == "__main__":
