@@ -1,0 +1,34 @@
+{
+  "schema_version": "r6-b-final-research-decision-v1",
+  "status": "b_research_complete_joint_a_acceptance_pending",
+  "task": "future_registered_neispraven_journal_episode_within_24h",
+  "physical_failure_claim": false,
+  "deployment_approved": false,
+  "source_freeze_sha256": "02d397b8a8d734449ec852504836e759e1a605a28f059befb4738b213a13d9d9",
+  "source_single_test_manifest_sha256": "95b04ed2099007c770d53c6fe08034a9b51876949be7b86a3b68095208c3b677",
+  "source_saved_prediction_replay_report_sha256": "1890b87ec19197e4afbbd16f4b829304947a5f0351104cd38869665343c359c3",
+  "frozen_rule_version": "r4-b-past-state-counts-v1",
+  "frozen_threshold": 7.1,
+  "threshold_is_product_approved": false,
+  "exploratory_budget_unmatched_warnings_per_1000_channel_days": 2.0,
+  "test_period": "2026-01_to_2026-06",
+  "test_raw_hours": 14060879,
+  "test_conditionally_admitted_hours": 1318741,
+  "test_conditionally_admitted_episodes": 489,
+  "test_matched_episodes": 100,
+  "test_unmatched_warnings": 210,
+  "test_unmatched_warnings_per_1000_channel_days": 1.8142862079690363,
+  "test_median_lead_hours": 0.49624999999999997,
+  "qa_counters_used_for_training_or_scoring": false,
+  "excluded_year": 2021,
+  "pending_joint_acceptance": [
+    "independent_A_history_to_features_inference_check",
+    "independent_A_batch_replay_and_resource_check"
+  ],
+  "pending_product_decision": [
+    "approved_warning_budget_and_type_specific_load",
+    "operational_handling_of_unknown_or_excluded_rows",
+    "acceptance_of_conditional_journal_record_target"
+  ],
+  "decision": "Research evaluation complete; retain frozen score for review, do not deploy as physical failure prediction."
+}
