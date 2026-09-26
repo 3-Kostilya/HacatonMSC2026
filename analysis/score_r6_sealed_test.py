@@ -15,7 +15,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from sklearn.metrics import average_precision_score
 
-from analysis.train_r4_discrete_baselines import read_json, sha256, verify_inputs
+from analysis.train_r4_discrete_baselines import read_json, sha256, sha256_pinned_text, verify_inputs
+from analysis.r6_provenance import frozen_rule_sha256
 from ml.forecast.alert_eval import evaluate_alerts
 from ml.forecast.r6_rule import RULE_VERSION, TERMS, predict_rule
 
@@ -96,7 +97,7 @@ def run(freeze_path: Path, validation_path: Path, qa_impact_path: Path,
             or freeze["excluded_year"] != 2021
             or freeze["test_scores_or_labels_seen_before_freeze"]
             or validation["status"] != "passed_before_sealed_test"
-            or validation["source_freeze_sha256"] != sha256(freeze_path)
+            or validation["source_freeze_sha256"] != frozen_rule_sha256(freeze_path)
             or freeze["source_r6_qa_impact_report_sha256"]
             != sha256(qa_impact_path)
             or read_json(qa_impact_path)["r4_rule_score_changed_rows_all_corrected"]):
@@ -108,7 +109,7 @@ def run(freeze_path: Path, validation_path: Path, qa_impact_path: Path,
     if (sha256(a3_dir / "manifest.json") != freeze["source_a3_manifest_sha256"]
             or sha256(index_dir / "manifest.json")
             != freeze["source_r3_admission_manifest_sha256"]
-            or sha256(Path("ml/r3_conditional_training_contract_v1.json"))
+            or sha256_pinned_text(Path("ml/r3_conditional_training_contract_v1.json"))
             != freeze["source_r3_contract_sha256"]):
         raise ValueError("frozen source package differs")
     months = [(a, i) for a, i in pairs if a["month"].startswith("2026-")]
@@ -171,9 +172,9 @@ def run(freeze_path: Path, validation_path: Path, qa_impact_path: Path,
     report = {
         "schema_version": "r6-b-single-sealed-test-v1",
         "status": "single_frozen_test_evaluated",
-        "source_freeze_sha256": sha256(freeze_path),
+        "source_freeze_sha256": frozen_rule_sha256(freeze_path),
         "source_validation_freeze_report_sha256": sha256(validation_path),
-        "source_r3_contract_sha256": sha256(
+        "source_r3_contract_sha256": sha256_pinned_text(
             Path("ml/r3_conditional_training_contract_v1.json")),
         "source_b3_manifest_sha256": sha256(b3_dir / "manifest.json"),
         "target": contract["prediction_target"],

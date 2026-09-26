@@ -9,6 +9,7 @@ from pathlib import Path
 import duckdb
 
 from analysis.train_r4_discrete_baselines import read_json, sha256
+from analysis.r6_provenance import frozen_rule_sha256
 from ml.forecast.r6_rule import TERMS
 
 
@@ -20,7 +21,7 @@ def run(*, freeze_path: Path, a3_dir: Path, index_dir: Path,
     manifest = read_json(test_dir / "manifest.json")
     source = read_json(a3_dir / "manifest.json")
     index = read_json(index_dir / "manifest.json")
-    if (manifest["source_freeze_sha256"] != sha256(freeze_path)
+    if (manifest["source_freeze_sha256"] != frozen_rule_sha256(freeze_path)
             or sha256(a3_dir / "manifest.json")
             != freeze["source_a3_manifest_sha256"]
             or sha256(index_dir / "manifest.json")
@@ -99,7 +100,7 @@ def run(*, freeze_path: Path, a3_dir: Path, index_dir: Path,
     report = {
         "schema_version": "r6-b-saved-prediction-replay-v1",
         "status": "passed",
-        "source_freeze_sha256": sha256(freeze_path),
+        "source_freeze_sha256": frozen_rule_sha256(freeze_path),
         "source_test_manifest_sha256": sha256(test_dir / "manifest.json"),
         "months": monthly,
         "rows_checked": sum(item["rows"] for item in monthly),

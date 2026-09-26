@@ -1,0 +1,31 @@
+{
+  "schema_version": "r6-a-technical-acceptance-v1",
+  "status": "a_accepted_joint_numerical_research_gate_complete",
+  "accepted_date": "2026-09-26",
+  "task": "future_registered_neispraven_journal_episode_within_24h",
+  "physical_failure_claim": false,
+  "deployment_approved": false,
+  "threshold_is_product_approved": false,
+  "live_admission_verified": false,
+  "b_original_prediction_file_identity_verified": false,
+  "source_freeze_lf_sha256": "02d397b8a8d734449ec852504836e759e1a605a28f059befb4738b213a13d9d9",
+  "source_a_history_report_sha256": "fb0ff1ae1a3381bcbb14da311e6c1225d915983fdd0e1668b024a8ce0ba2b35d",
+  "source_a_history_manifest_sha256": "24da9b8ea463aefe80346314a45c91bc50b1f7152ec627a68adab2e6910a9371",
+  "history_version": "r6-a-causal-rule-history-v1",
+  "frozen_threshold": 7.1,
+  "test_hours_recounted": 1318741,
+  "rule_input_mismatches": 0,
+  "sample_batch_replay_hours": 543,
+  "sample_batch_replay_mismatches": 0,
+  "warning_replay_mismatches": 0,
+  "test_matched_episodes": 100,
+  "test_unmatched_warnings": 210,
+  "peak_working_set_bytes": 1362579456,
+  "audit_elapsed_seconds": 27.56,
+  "scope": "Independent M1/B2 to all four selected rule inputs, scores and fixed-threshold metrics; no threshold tuning.",
+  "pending_non_numerical_checks": [
+    "file_identity_of_B_original_R6_predictions_when_transferred",
+    "past_only_live_admission_without_retrospective_label_filter",
+    "customer_approval_of_warning_budget_and_operational_response"
+  ]
+}

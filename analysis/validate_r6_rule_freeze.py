@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from analysis.train_r4_discrete_baselines import read_json, sha256
+from analysis.r6_provenance import frozen_rule_sha256
 from ml.forecast.alert_eval import evaluate_alerts
 from ml.forecast.r6_rule import RULE_VERSION, TERMS, predict_rule
 
@@ -130,7 +131,7 @@ def validate(freeze_path: Path, a3_dir: Path, index_dir: Path,
     report = {
         "schema_version": "r6-b-validation-freeze-audit-v1",
         "status": "passed_before_sealed_test",
-        "source_freeze_sha256": sha256(freeze_path),
+        "source_freeze_sha256": frozen_rule_sha256(freeze_path),
         "source_r4_audit_manifest_sha256": sha256(r4_audit_dir / "manifest.json"),
         "validation_rows": len(full),
         "validation_positive_hours": int(full.target.sum()),
