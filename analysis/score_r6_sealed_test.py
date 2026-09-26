@@ -120,9 +120,9 @@ def run(freeze_path: Path, validation_path: Path, qa_impact_path: Path,
     full_status: dict[str, Counter[str]] = defaultdict(Counter)
     for a, _ in months:
         item = b3_chunks[a["month"]]
-        detail = read_json(b3_dir / item["manifest_file"])
-        for name, counts in detail["status_counts"].items():
-            full_status[name].update(counts)
+        detail = read_json((b3_dir / item["manifest_file"]).parent / "report.json")
+        for name in ("label_status", "assigned_label_status", "split_status"):
+            full_status[name].update(detail[name])
     output_dir.mkdir(parents=True)
     parts = []
     monthly_files = []
