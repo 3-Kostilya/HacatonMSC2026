@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 import tempfile
 import unittest
 
@@ -11,6 +12,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from analysis.run_shadow_pilot_b import run
+from analysis.train_r4_discrete_baselines import sha256
+from ml.forecast.shadow_pilot import PINNED_FREEZE_SHA256
 
 
 FREEZE = Path("ml/r6_frozen_rule_v1.json")
@@ -72,6 +75,40 @@ class ShadowBatchTest(unittest.TestCase):
                 run(input_path=input_path, freeze_path=FREEZE,
                     output_dir=root / "bad_output")
             self.assertFalse((root / "bad_output").exists())
+
+    def test_a_package_hash_and_freeze_are_checked_before_scoring(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "hours.parquet"
+            pq.write_table(pa.Table.from_pylist([
+                source_row(datetime(2026, 6, 1)),
+            ]), input_path)
+            report_path = root / "report.json"
+            report_path.write_text(json.dumps({
+                "source_freeze_lf_sha256": PINNED_FREEZE_SHA256,
+            }), encoding="utf-8")
+            manifest_path = root / "manifest.json"
+            manifest = {
+                "schema_version": "shadow-pilot-a-causal-admission-v1",
+                "b_input_file": input_path.name,
+                "b_input_sha256": sha256(input_path),
+                "report_sha256": sha256(report_path),
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            output_path = root / "valid_output"
+            result = run(input_path=input_path, freeze_path=FREEZE,
+                         output_dir=output_path, source_manifest=manifest_path)
+            self.assertEqual(result["source_a_manifest_sha256"], sha256(manifest_path))
+            self.assertGreaterEqual(result["resources"]["elapsed_seconds"], 0)
+            self.assertGreater(result["resources"]["peak_working_set_bytes"], 0)
+
+            manifest["b_input_sha256"] = "0" * 64
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source package differs"):
+                run(input_path=input_path, freeze_path=FREEZE,
+                    output_dir=root / "invalid_output",
+                    source_manifest=manifest_path)
+            self.assertFalse((root / "invalid_output").exists())
 
 
 if __name__ == "__main__":
