@@ -60,14 +60,14 @@ def run(*, freeze_path: Path, a3_dir: Path, index_dir: Path,
                            f.sensor_type AS feature_type,
                            {formula} AS replay_score
                     FROM read_parquet(?) p
-                    FULL OUTER JOIN read_parquet(?) c
+                    FULL OUTER JOIN (
+                        SELECT * FROM read_parquet(?) WHERE split='test'
+                    ) c
                       ON p.channel_id=c.channel_id
                      AND p.prediction_time=c.prediction_time
-                     AND c.split='test'
                     LEFT JOIN read_parquet(?) f
                       ON p.channel_id=f.channel_id
                      AND p.prediction_time=f.prediction_time
-                    WHERE c.split='test' OR c.split IS NULL
                 ) SELECT COUNT(*) AS rows,
                      COUNT(DISTINCT (channel_id,prediction_time)) AS distinct_keys,
                      COUNT(*) FILTER (WHERE channel_id IS NULL OR
