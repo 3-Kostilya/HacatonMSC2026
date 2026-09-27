@@ -10,8 +10,10 @@ import type {
 
 
 const API_URL =
-  import.meta.env.VITE_API_URL ??
-  "http://127.0.0.1:8000";
+  (
+    import.meta.env.VITE_API_URL ??
+    "http://127.0.0.1:8000"
+  ).replace(/\/+$/, "");
 
 
 async function request<T>(
@@ -144,8 +146,14 @@ export function getSensorDetails(
   sensorId: string
 ) {
 
+  const id =
+    encodeURIComponent(
+      sensorId
+    );
+
+
   return request<SensorDetails>(
-    `/api/sensors/${sensorId}`
+    `/api/sensors/${id}`
   );
 }
 
@@ -154,8 +162,14 @@ export function getSensorHistory(
   sensorId: string
 ) {
 
+  const id =
+    encodeURIComponent(
+      sensorId
+    );
+
+
   return request<SensorEvent[]>(
-    `/api/sensors/${sensorId}/history`
+    `/api/sensors/${id}/history`
   );
 }
 
@@ -164,7 +178,13 @@ export function getSensorAssessment(
   sensorId: string
 ) {
 
+  const id =
+    encodeURIComponent(
+      sensorId
+    );
+
+
   return request<SensorAssessment>(
-    `/api/sensors/${sensorId}/assessment`
+    `/api/sensors/${id}/assessment`
   );
 }

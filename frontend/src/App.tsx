@@ -26,7 +26,6 @@ import type {
 
 import "./App.css";
 
-
 type Filter =
   | "all"
   | SensorGroup;
@@ -39,7 +38,6 @@ type Theme =
 /* =========================================================
    ICONS
 ========================================================= */
-
 
 function SunIcon() {
   return (
@@ -118,11 +116,7 @@ function RefreshIcon() {
       fill="none"
       stroke="currentColor"
     >
-      <path
-        d="
-          M20 6V11H15
-        "
-      />
+      <path d="M20 6V11H15" />
 
       <path
         d="
@@ -130,6 +124,83 @@ function RefreshIcon() {
           A7.5 7.5 0 1 0
           19 15
         "
+      />
+    </svg>
+  );
+}
+
+
+function SensorIcon({
+  className = "",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+    >
+      <rect
+        x="18"
+        y="22"
+        width="28"
+        height="20"
+        rx="8"
+        stroke="currentColor"
+        strokeWidth="2.8"
+      />
+
+      <circle
+        cx="32"
+        cy="32"
+        r="4.5"
+        stroke="currentColor"
+        strokeWidth="2.8"
+      />
+
+      <path
+        d="M32 18V13"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M24 46V51"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M32 46V53"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M40 46V51"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M24 20C25.8 16.9 28.6 15 32 15C35.4 15 38.2 16.9 40 20"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M21 16C23.7 11.9 27.5 10 32 10C36.5 10 40.3 11.9 43 16"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        opacity="0.75"
       />
     </svg>
   );
@@ -203,16 +274,28 @@ function predictionStatusText(
 }
 
 
-function riskText(
+function scoreText(
   score: number | null
 ) {
   if (score === null) {
     return "Нет оценки";
   }
 
-  return `${Math.round(
-    score * 100
-  )}/100`;
+  return score.toLocaleString(
+    "ru-RU",
+    {
+      maximumFractionDigits: 2,
+    }
+  );
+}
+
+
+function isFaultState(
+  state: string
+) {
+  return state
+    .toLocaleLowerCase("ru-RU")
+    .includes("неисправ");
 }
 
 
@@ -361,7 +444,7 @@ function App() {
 
   /*
    * Номер последнего запроса датчика.
-   * Не позволяет старому запросу
+   * Старый запрос не сможет
    * перезаписать более новый.
    */
   const sensorRequestId =
@@ -549,10 +632,6 @@ function App() {
       ++sensorRequestId.current;
 
 
-    /*
-     * Выделение карточки происходит сразу,
-     * но старая правая панель не исчезает.
-     */
     setActiveSensorId(
       sensorId
     );
@@ -588,11 +667,6 @@ function App() {
         ]);
 
 
-      /*
-       * Если пользователь уже успел
-       * выбрать другой датчик,
-       * старый ответ игнорируем.
-       */
       if (
         requestId !==
         sensorRequestId.current
@@ -850,9 +924,54 @@ function App() {
      CURRENT DATA
   ======================================================= */
 
-  const currentRiskScore =
-    assessment?.riskScore ??
-    selectedSensor?.riskScore ??
+  const currentRuleScore =
+    assessment?.ruleScore ??
+    selectedSensor?.ruleScore ??
+    null;
+
+
+  const currentThreshold =
+    assessment?.threshold ??
+    selectedSensor?.threshold ??
+    null;
+
+
+  const currentThresholdCrossed =
+    assessment?.thresholdCrossed ??
+    selectedSensor?.thresholdCrossed ??
+    null;
+
+
+  const currentWarning =
+    assessment?.warning ??
+    selectedSensor?.warning ??
+    false;
+
+
+  const currentAnomalyCandidate =
+    assessment?.anomalyCandidate ??
+    selectedSensor?.anomalyCandidate ??
+    false;
+
+
+  const currentPredictionStatus =
+    assessment?.predictionStatus ??
+    selectedSensor?.predictionStatus ??
+    "not_available";
+
+
+  const currentPredictionTime =
+    assessment?.predictionTime ??
+    null;
+
+
+  const currentUnavailableReason =
+    assessment?.unavailableReason ??
+    null;
+
+
+  const currentAdmissionReason =
+    assessment?.admissionReason ??
     null;
 
 
@@ -866,6 +985,31 @@ function App() {
     assessment?.currentState ??
     selectedSensor?.currentState ??
     "";
+
+
+  const forecastAvailable =
+    currentPredictionStatus === "scored" &&
+    currentRuleScore !== null;
+
+
+  const forecastResult =
+    !forecastAvailable
+      ? "Нет оценки"
+      : currentThresholdCrossed === true
+        ? "Порог превышен"
+        : currentThresholdCrossed === false
+          ? "Порог не превышен"
+          : "Нет оценки";
+
+
+  const forecastResultClass =
+    !forecastAvailable
+      ? "forecast-result unknown"
+      : currentThresholdCrossed === true
+        ? "forecast-result warning"
+        : currentThresholdCrossed === false
+          ? "forecast-result ok"
+          : "forecast-result unknown";
 
 
   /* =======================================================
@@ -884,6 +1028,7 @@ function App() {
         <div className="brand">
 
           <div className="brand-mark">
+
             <img
               src="/logo.png"
               alt="Логотип системы"
@@ -1176,7 +1321,7 @@ function App() {
                 );
               }}
             >
-              Риск
+              Предупреждения
             </button>
 
 
@@ -1248,7 +1393,9 @@ function App() {
 
                       <span
                         className={
-                          sensor.currentState === "Неисправен"
+                          isFaultState(
+                            sensor.currentState
+                          )
                             ? "state state-fault"
                             : "state"
                         }
@@ -1280,6 +1427,7 @@ function App() {
                         <span className="signal warning">
                           Предупреждение
                         </span>
+
                       )}
 
 
@@ -1288,6 +1436,7 @@ function App() {
                         <span className="signal anomaly">
                           Аномалия
                         </span>
+
                       )}
 
 
@@ -1297,6 +1446,7 @@ function App() {
                           <span className="signal neutral">
                             Без активных сигналов
                           </span>
+
                         )}
 
                     </div>
@@ -1315,9 +1465,6 @@ function App() {
 
         <section className="details-panel">
 
-
-          {/* Маленький индикатор загрузки.
-              Контент не исчезает. */}
 
           {detailsLoading && (
 
@@ -1354,6 +1501,9 @@ function App() {
 
             <>
 
+
+              {/* SENSOR HEADER */}
+
               <div className="details-header">
 
                 <div>
@@ -1376,16 +1526,20 @@ function App() {
 
                 <span
                   className={
-                    currentState === "Неисправен"
+                    isFaultState(
+                      currentState
+                    )
                       ? "large-state fault"
                       : "large-state"
                   }
                 >
-                  {currentState}
+                  {currentState || "Нет данных"}
                 </span>
 
               </div>
 
+
+              {/* BASIC INFO */}
 
               <div className="details-grid">
 
@@ -1425,8 +1579,7 @@ function App() {
 
                   <strong>
                     {predictionStatusText(
-                      assessment?.predictionStatus ??
-                      selectedSensor.predictionStatus
+                      currentPredictionStatus
                     )}
                   </strong>
 
@@ -1434,6 +1587,8 @@ function App() {
 
               </div>
 
+
+              {/* FORECAST */}
 
               <article className="risk-card">
 
@@ -1446,47 +1601,158 @@ function App() {
                     </span>
 
                     <h3>
-                      Индекс риска
+                      Прогнозный балл
                     </h3>
 
                   </div>
 
 
                   <strong className="risk-value">
-                    {riskText(
-                      currentRiskScore
+                    {scoreText(
+                      currentRuleScore
                     )}
                   </strong>
 
                 </div>
 
 
-                {currentRiskScore !== null && (
+                <div className="forecast-grid">
 
-                  <div className="risk-track">
+                  <div className="forecast-item">
 
-                    <div
-                      className="risk-fill"
-                      style={{
-                        width:
-                          `${currentRiskScore * 100}%`,
-                      }}
-                    />
+                    <span className="forecast-label">
+                      Порог предупреждения
+                    </span>
+
+                    <strong>
+                      {scoreText(
+                        currentThreshold
+                      )}
+                    </strong>
 
                   </div>
+
+
+                  <div className="forecast-item">
+
+                    <span className="forecast-label">
+                      Результат
+                    </span>
+
+                    <strong
+                      className={
+                        forecastResultClass
+                      }
+                    >
+                      {forecastResult}
+                    </strong>
+
+                  </div>
+
+
+                  <div className="forecast-item">
+
+                    <span className="forecast-label">
+                      Последний расчёт
+                    </span>
+
+                    <strong>
+                      {formatDate(
+                        currentPredictionTime
+                      )}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+
+                <div className="sensor-signals forecast-signals">
+
+                  {currentWarning && (
+
+                    <span className="signal warning">
+                      Предупреждение
+                    </span>
+
+                  )}
+
+
+                  {currentAnomalyCandidate && (
+
+                    <span className="signal anomaly">
+                      Аномалия
+                    </span>
+
+                  )}
+
+
+                  {!currentWarning &&
+                    !currentAnomalyCandidate &&
+                    currentPredictionStatus === "scored" && (
+
+                      <span className="signal neutral">
+                        Без активных сигналов
+                      </span>
+
+                    )}
+
+
+                  {!currentWarning &&
+                    !currentAnomalyCandidate &&
+                    currentPredictionStatus !== "scored" && (
+
+                      <span className="signal neutral">
+                        Нет активного прогноза
+                      </span>
+
+                    )}
+
+                </div>
+
+
+                {currentUnavailableReason && (
+
+                  <p className="forecast-note">
+
+                    <strong>
+                      Причина недоступности:
+                    </strong>{" "}
+
+                    {currentUnavailableReason}
+
+                  </p>
                 )}
+
+
+                {!currentUnavailableReason &&
+                  currentAdmissionReason && (
+
+                    <p className="forecast-note">
+
+                      <strong>
+                        Причина статуса:
+                      </strong>{" "}
+
+                      {currentAdmissionReason}
+
+                    </p>
+                  )}
 
 
                 <p className="muted">
 
-                  Индекс отражает оценку модели,
-                  а не подтверждённую вероятность
-                  физической поломки.
+                  Балл используется для определения
+                  предупреждения относительно заданного
+                  порога и не является подтверждённой
+                  вероятностью физической поломки.
 
                 </p>
 
               </article>
 
+
+              {/* ANALYSIS */}
 
               <article className="analysis-card">
 
@@ -1510,7 +1776,8 @@ function App() {
                 {currentRiskFactors.length === 0 ? (
 
                   <p className="muted">
-                    Выраженных факторов риска сейчас нет.
+                    Дополнительные факторы внимания
+                    не выделены.
                   </p>
 
                 ) : (
@@ -1543,6 +1810,8 @@ function App() {
 
               </article>
 
+
+              {/* HISTORY */}
 
               <article className="history-card">
 
@@ -1632,9 +1901,11 @@ function App() {
 
 
                               <td>
+
                                 {event.alarm
                                   ? "Да"
                                   : "Нет"}
+
                               </td>
 
                             </tr>
@@ -1661,69 +1932,5 @@ function App() {
   );
 }
 
-function SensorIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      className={className}
-      aria-hidden="true"
-      fill="none"
-    >
-      <rect
-        x="18"
-        y="22"
-        width="28"
-        height="20"
-        rx="8"
-        stroke="currentColor"
-        strokeWidth="2.8"
-      />
-      <circle
-        cx="32"
-        cy="32"
-        r="4.5"
-        stroke="currentColor"
-        strokeWidth="2.8"
-      />
-      <path
-        d="M32 18V13"
-        stroke="currentColor"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M24 46V51"
-        stroke="currentColor"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M32 46V53"
-        stroke="currentColor"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M40 46V51"
-        stroke="currentColor"
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M24 20C25.8 16.9 28.6 15 32 15C35.4 15 38.2 16.9 40 20"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-      <path
-        d="M21 16C23.7 11.9 27.5 10 32 10C36.5 10 40.3 11.9 43 16"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        opacity="0.75"
-      />
-    </svg>
-  );
-}
 
 export default App;
