@@ -1,131 +1,175 @@
-from typing import Literal
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+)
 
-from fastapi import APIRouter, HTTPException, Query
-
-from ..schemas import SensorAssessment, SensorDetails, SensorEvent, SensorListItem
-from ..services import (
-    get_sensor,
-    get_sensor_assessment,
-    get_sensor_history,
-    get_sensors,
+from app.config import (
+    MAX_HISTORY_ITEMS,
+)
+from app.dependencies import (
+    get_store,
+)
+from app.schemas import (
+    SensorAssessment,
+    SensorDetails,
+    SensorEvent,
+    SensorListItem,
+)
+from app.services import (
     search_sensors,
+    sensor_assessment,
+    sensor_details,
+    sensor_history,
+    sensor_list,
+)
+from app.storage import (
+    ParquetStore,
 )
 
 router = APIRouter(
     prefix="/api/sensors",
-    tags=["Sensors"]
+    tags=[
+        "Sensors",
+    ],
 )
 
 
 @router.get(
     "",
-    response_model=list[SensorListItem]
+    response_model=list[
+        SensorListItem
+    ],
 )
-def sensors(
-    group: Literal[
-        "failed",
-        "warning",
-        "anomaly"
-    ] | None = None,
-
-    limit: int = Query(
-        default=100,
-        ge=1,
-        le=1000
-    )
+def get_sensors(
+    group: str | None = Query(
+        default=None,
+        pattern=(
+            "^(failed|warning|anomaly)$"
+        ),
+    ),
+    store: ParquetStore = Depends(
+        get_store
+    ),
 ):
-
-    return get_sensors(
-        group=group,
-        limit=limit
+    return sensor_list(
+        store,
+        group,
     )
 
 
 @router.get(
     "/search",
-    response_model=list[SensorListItem]
+    response_model=list[
+        SensorListItem
+    ],
 )
-def sensors_search(
+def search(
     q: str = Query(
-        min_length=1
+        default=""
     ),
-
-    limit: int = Query(
-        default=50,
-        ge=1,
-        le=100
-    )
+    store: ParquetStore = Depends(
+        get_store
+    ),
 ):
-
     return search_sensors(
-        query=q,
-        limit=limit
+        store,
+        q,
     )
 
 
 @router.get(
-    "/{sensor_id}/history",
-    response_model=list[SensorEvent]
+    "/{sensor_id}",
+    response_model=SensorDetails,
 )
-def sensor_history(
-    sensor_id: str
+def get_sensor(
+    sensor_id: str,
+    store: ParquetStore = Depends(
+        get_store
+    ),
 ):
 
-    sensor = get_sensor(
-        sensor_id
+    result = sensor_details(
+        store,
+        sensor_id,
     )
 
-    if sensor is None:
-
+    if result is None:
         raise HTTPException(
             status_code=404,
-            detail="Sensor not found"
+            detail=(
+                "Sensor not found"
+            ),
         )
 
-    return get_sensor_history(
-        sensor_id
+    return result
+
+
+@router.get(
+    "/{sensor_id}/history",
+    response_model=list[
+        SensorEvent
+    ],
+)
+def get_sensor_history(
+    sensor_id: str,
+
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=MAX_HISTORY_ITEMS,
+    ),
+
+    store: ParquetStore = Depends(
+        get_store
+    ),
+):
+
+    if (
+        sensor_details(
+            store,
+            sensor_id,
+        )
+        is None
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Sensor not found"
+            ),
+        )
+
+    return sensor_history(
+        store,
+        sensor_id,
+        limit,
     )
 
 
 @router.get(
     "/{sensor_id}/assessment",
-    response_model=SensorAssessment
+    response_model=SensorAssessment,
 )
-def sensor_assessment(
-    sensor_id: str
+def get_sensor_assessment(
+    sensor_id: str,
+
+    store: ParquetStore = Depends(
+        get_store
+    ),
 ):
 
-    assessment = get_sensor_assessment(
-        sensor_id
+    result = sensor_assessment(
+        store,
+        sensor_id,
     )
 
-    if assessment is None:
-
+    if result is None:
         raise HTTPException(
             status_code=404,
-            detail="Sensor not found"
+            detail=(
+                "Sensor not found"
+            ),
         )
 
-    return assessment
-
-
-@router.get(
-    "/{sensor_id}",
-    response_model=SensorDetails
-)
-def sensor_details(
-    sensor_id: str
-):
-
-    sensor = get_sensor(
-        sensor_id
-    )
-
-    if sensor is None:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Sensor not found"
-        )
-
-    return sensor
+    return result

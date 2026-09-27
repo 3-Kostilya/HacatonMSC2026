@@ -1,18 +1,38 @@
-from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    Depends,
+)
 
-from ..schemas import DashboardSummary
-from ..services import get_dashboard_summary
+from app.dependencies import (
+    get_store,
+)
+from app.schemas import (
+    DashboardSummary,
+)
+from app.services import (
+    dashboard_summary,
+)
+from app.storage import (
+    ParquetStore,
+)
 
 router = APIRouter(
     prefix="/api/dashboard",
-    tags=["Dashboard"]
+    tags=[
+        "Dashboard",
+    ],
 )
 
 
 @router.get(
     "/summary",
-    response_model=DashboardSummary
+    response_model=DashboardSummary,
 )
-def dashboard_summary():
-
-    return get_dashboard_summary()
+def get_dashboard_summary(
+    store: ParquetStore = Depends(
+        get_store
+    ),
+):
+    return dashboard_summary(
+        store
+    )
