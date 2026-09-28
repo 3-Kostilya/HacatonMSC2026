@@ -72,7 +72,7 @@ def score_files(models: dict, configs: dict, base: list[str], input_path: Path, 
 
 def run(data: Path, output: Path, selected_configs: list[str] | None = None,
         *, feature_builder=engineered_input, configs_override: dict | None = None,
-        resume: bool = False) -> dict:
+        resume: bool = False, weight_builder=training_weights) -> dict:
     from analysis.ml_experiment_eval import PreparedEvaluation, search_thresholds
     output.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((data / "manifest.json").read_text(encoding="utf-8"))
@@ -93,7 +93,7 @@ def run(data: Path, output: Path, selected_configs: list[str] | None = None,
     report["feature_builder"] = getattr(feature_builder, "__qualname__", type(feature_builder).__name__)
     for name, config in configs.items():
         started = time.monotonic()
-        weight, class_weights = training_weights(train, config["weights"])
+        weight, class_weights = weight_builder(train, config["weights"])
         matrix = engineered if config["engineered"] else raw
         path = output / f"{name}.cbm"
         saved = saved_report.get("experiments", {}).get(name)
