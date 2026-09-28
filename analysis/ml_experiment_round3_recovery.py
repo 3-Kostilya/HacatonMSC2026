@@ -25,11 +25,14 @@ def read(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def run(source: Path, column: str, threshold: float, output: Path, year: int = 2025):
+def run(source: Path, column: str, threshold: float, output: Path, year: int = 2025,
+        admission_mode: str = "q2"):
     if output.exists():
         raise FileExistsError(output)
     if year not in (2024, 2025):
         raise ValueError("only frozen tuning and open validation years are in scope")
+    if admission_mode not in {"q2", "q3"}:
+        raise ValueError("unknown research admission mode")
     q2 = Path("output/q2-a-full-sparse-20260926-v5")
     m1 = Path("output/milestone1/full_20260922")
     package = read(q2 / "manifest.json")
@@ -58,6 +61,25 @@ def run(source: Path, column: str, threshold: float, output: Path, year: int = 2
         raw.append(str(path))
     if len(raw) != 72 or len(admissions) != 12:
         raise AssertionError("source coverage incomplete")
+    q3_admissions = []
+    q3_manifest_sha256 = None
+    if admission_mode == "q3":
+        q3 = Path("output/q3-a-coverage-reentry-20260927-v4")
+        q3_manifest = read(q3 / "manifest.json")
+        verification = read(Path("output/q3-a-coverage-reentry-verification-20260927-v4.json"))
+        q3_manifest_sha256 = sha256(q3 / "manifest.json")
+        if (verification["status"] != "independent_delta_invariants_features_and_oracle_verified"
+                or q3_manifest_sha256 != verification["source_manifest_sha256"]):
+            raise AssertionError("Q3 research source verification changed")
+        for month in (m for m in q3_manifest["months"] if m["month"].startswith(f"{year}-")):
+            folder = q3 / f"year={year}/month={month['month'][5:]}"
+            local = read(folder / "manifest.json")
+            path = folder / "new_admission.parquet"
+            if sha256(path) != local["files"]["new_admission.parquet"]["sha256"]:
+                raise AssertionError("Q3 added admission changed")
+            q3_admissions.append(str(path))
+        if len(q3_admissions) != 12:
+            raise AssertionError("Q3 month coverage incomplete")
     full = pq.read_table(q2 / "episode_diagnostics.parquet").to_pandas()
     full = full.loc[full.target_episode_id.str.contains(f":{year}-", regex=False)]
     expected_full = 1204 if year == 2024 else 2142
@@ -82,12 +104,26 @@ def run(source: Path, column: str, threshold: float, output: Path, year: int = 2
         if len(labels) == 0:
             raise AssertionError("no threshold decisions")
         db.execute("CREATE TEMP TABLE selected_channels AS SELECT DISTINCT channel_id FROM scores UNION SELECT '228571'")
-        past = db.execute('''SELECT s.channel_id,s.prediction_time,s.sensor_type,
+        admission_query = '''SELECT channel_id,prediction_time,sensor_type,
+            admission_status,admission_evidence_through,last_explicit_normal_at,
+            blocking_qa_count_24h,availability_status
+            FROM read_parquet(?,hive_partitioning=false)
+            WHERE admission_status='eligible' '''
+        parameters = [admissions]
+        if admission_mode == "q3":
+            admission_query += ''' UNION ALL SELECT channel_id,prediction_time,sensor_type,
+                combined_status AS admission_status,
+                admission_evidence_through,last_explicit_normal_at,
+                blocking_qa_count_24h,availability_status
+                FROM read_parquet(?,hive_partitioning=false)'''
+            parameters.append(q3_admissions)
+        past = db.execute(f'''WITH a AS ({admission_query})
+            SELECT s.channel_id,s.prediction_time,s.sensor_type,
             a.admission_status,a.admission_evidence_through,a.last_explicit_normal_at,
             a.blocking_qa_count_24h,a.availability_status FROM scores s
-            LEFT JOIN read_parquet(?,hive_partitioning=false) a
-            USING(channel_id,prediction_time) WHERE a.sensor_type=s.sensor_type
-            ORDER BY s.prediction_time,s.channel_id''', [admissions]).fetch_df()
+            LEFT JOIN a USING(channel_id,prediction_time)
+            WHERE a.sensor_type=s.sensor_type
+            ORDER BY s.prediction_time,s.channel_id''', parameters).fetch_df()
         if (len(past) != len(labels) or past.duplicated(["channel_id", "prediction_time"]).any()
                 or not past.admission_status.eq("eligible").all()):
             raise AssertionError("score/admission key or eligibility mismatch")
@@ -140,6 +176,9 @@ def run(source: Path, column: str, threshold: float, output: Path, year: int = 2
     result = {"status": "RESEARCH_CAUSAL_RESET_FROZEN_Q2_SCORE",
               "source_sha256": sha256(source), "source": str(source), "column": column,
               "threshold": threshold, "year": year, "causal_policy_version": VERSION,
+              "admission_mode": admission_mode,
+              "source_q2_manifest_sha256": sha256(q2 / "manifest.json"),
+              "source_q3_manifest_sha256": q3_manifest_sha256,
               "model_and_threshold_frozen": True, "source_raw_text_events": raw_count,
               "above_threshold_decisions": len(labels), "full_episode_count": expected_full,
               "control": old_metric, "candidate": new_metric,
@@ -147,9 +186,10 @@ def run(source: Path, column: str, threshold: float, output: Path, year: int = 2
               "lost_episode_ids": len(old_ids - new_ids),
               "production_baseline_warning_parity": True,
               "research_only": True, "test_2026_read": False, "data_2021_read": False,
-              "caveats": ["Q2 score stream excludes unknown-label hours as in the published offline evaluator.",
+              "caveats": ["Score stream excludes unknown-label hours as in the published offline evaluator.",
                           "Already-open 2025 outcomes are exploratory, not blind confirmation.",
-                          "Short registered episodes may not equal actionable physical failures."]}
+                          "Short registered episodes may not equal actionable physical failures.",
+                          "Q3 admission and recovery-reset are separate unapproved research candidates."]}
     (output / "report.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({key: result[key] for key in ["control", "candidate", "reset_warnings"]},
                      ensure_ascii=False), flush=True)
@@ -162,6 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--column", default="score_flexible")
     parser.add_argument("--threshold", type=float, default=0.0)
     parser.add_argument("--year", type=int, choices=[2024, 2025], default=2025)
+    parser.add_argument("--admission-mode", choices=["q2", "q3"], default="q2")
     parser.add_argument("--output", type=Path, default=Path("output/ml-experiment-round3/recovery-q2-routing"))
     args = parser.parse_args()
-    run(args.source, args.column, args.threshold, args.output, args.year)
+    run(args.source, args.column, args.threshold, args.output, args.year, args.admission_mode)

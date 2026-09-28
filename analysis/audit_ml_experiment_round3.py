@@ -22,7 +22,7 @@ def run(root: Path, output: Path):
     with duckdb.connect() as db:
         db.execute("SET threads=2")
         db.execute("SET memory_limit='2GB'")
-        for directory in sorted(root.glob("recovery-q2-*")):
+        for directory in sorted(root.glob("recovery-q[23]-*")):
             report_path = directory / "report.json"
             if not report_path.exists():
                 continue
