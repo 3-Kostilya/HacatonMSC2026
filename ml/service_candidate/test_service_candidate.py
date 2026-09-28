@@ -13,6 +13,7 @@ import pandas as pd
 from ml.service_candidate.features import engineered_input
 from ml.service_candidate.loader import ResearchRiskModel, sha256, source_sha256
 from ml.service_candidate.train import episode_weights, write_json
+from ml.service_candidate.training_bundle import verify_bundle
 
 
 def example_features():
@@ -38,6 +39,23 @@ def example_features():
 
 
 class TestServiceCandidate(unittest.TestCase):
+    def test_training_bundle_rejects_modified_data(self):
+        with TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            data = directory / "data.parquet"
+            data.write_bytes(b"original")
+            write_json(
+                directory / "bundle_manifest.json",
+                {
+                    "schema_version": "prepared-training-code-weights-v1",
+                    "files_sha256": {"data.parquet": sha256(data)},
+                },
+            )
+            self.assertEqual(len(verify_bundle(directory)["files_sha256"]), 1)
+            data.write_bytes(b"modified")
+            with self.assertRaises(ValueError):
+                verify_bundle(directory)
+
     def test_source_hash_is_portable_across_windows_checkout_line_endings(self):
         with TemporaryDirectory() as temporary:
             source = Path(temporary) / "feature_source.py"
