@@ -21,7 +21,8 @@ from analysis.audit_q2_recovery_reset_a import stream_groups
 from analysis.ml_experiment_features import engineered_input
 from analysis.ml_experiment_linear import transform
 from analysis.prepare_ml_experiment import sha256
-from analysis.q2_recovery_reset_a import RecoveryResetPolicy
+from analysis.q2_recovery_reset_a import COOLDOWN, RecoveryResetPolicy
+from stage1.state_labeling.operational import segment_at
 
 
 def read(path: Path):
@@ -106,11 +107,20 @@ def assess(db, rows: list[dict], label_files: list[str], full: int):
     return metric,joined
 
 
+def standard_warning_available(policy: RecoveryResetPolicy, channel: str, at) -> bool:
+    """Only previously emitted warnings can determine a standard 24h opportunity."""
+    state = policy.warnings.get(channel)
+    return bool(state is None or state.segment != segment_at(at)
+                or state.last_warning_at is None
+                or at >= state.last_warning_at + COOLDOWN)
+
+
 def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
         year: int = 2025, type_thresholds: dict[str, float] | None = None,
         score_source: Path | None = None, smoke_max_normal_age_hours: float | None = None,
         veto_score_source: Path | None = None, veto_threshold: float | None = None,
-        veto_exempt_gas: bool = False):
+        veto_exempt_gas: bool = False,
+        standard_specialist_scores: Path | None = None):
     if output.exists():
         raise FileExistsError(output)
     if model_name not in {"tree", "linear"}:
@@ -265,16 +275,42 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
             UNION ALL SELECT channel_id,prediction_time,sensor_type,
             combined_status,admission_evidence_through,last_explicit_normal_at,
             blocking_qa_count_24h,availability_status FROM read_parquet(?,hive_partitioning=false)'''
+        specialist_select = ",x.specialist_score" if standard_specialist_scores else ""
+        specialist_join = ("LEFT JOIN read_parquet(?) x ON x.channel_id=s.channel_id "
+                           "AND x.prediction_time=s.prediction_time AND x.sensor_type=s.sensor_type"
+                           if standard_specialist_scores else "")
+        specialist_args = []
+        specialist_threshold = None
+        if standard_specialist_scores is not None:
+            specialist_report = read(standard_specialist_scores.parent /
+                                     f"all_shortlist_scores_{year}_report.json")
+            frozen_specialist = read(standard_specialist_scores.parent /
+                                     "frozen_2024_selection.json")
+            if (specialist_report["year"] != year
+                    or specialist_report["score_sha256"] != sha256(standard_specialist_scores)
+                    or specialist_report["model_sha256"] != frozen_specialist["model_sha256"]
+                    or specialist_report["linear_source_sha256"] != sha256(source)
+                    or veto_score_source is None
+                    or specialist_report["tree_source_sha256"] != sha256(veto_score_source)
+                    or specialist_report["threshold"] != frozen_specialist["threshold"]):
+                raise AssertionError("standard specialist score provenance differs")
+            specialist_threshold = float(specialist_report["threshold"])
+            specialist_args.append(str(standard_specialist_scores))
         past = db.execute(f'''WITH a AS ({admission_query})
             SELECT s.channel_id,s.prediction_time,s.sensor_type,a.admission_status,
             a.admission_evidence_through,a.last_explicit_normal_at,
-            a.blocking_qa_count_24h,a.availability_status FROM scores s
+            a.blocking_qa_count_24h,a.availability_status{specialist_select} FROM scores s
             LEFT JOIN a USING(channel_id,prediction_time)
+            {specialist_join}
             WHERE a.sensor_type=s.sensor_type ORDER BY s.prediction_time,s.channel_id''',
-            [q2_admissions,q3_admissions]).fetch_df()
+            [q2_admissions,q3_admissions,*specialist_args]).fetch_df()
         if (len(past)!=decisions or past.duplicated(["channel_id","prediction_time"]).any()
                 or not past.admission_status.eq("eligible").all()):
             raise AssertionError("all score decisions lack exact protected admission")
+        if standard_specialist_scores is not None and past.loc[
+                past.sensor_type.isin(["Датчик дыма","Состояние фазы"]),
+                "specialist_score"].isna().any():
+            raise AssertionError("targeted shortlist decision lacks specialist score")
         db.execute(f'''CREATE TEMP TABLE events AS SELECT row_id,channel_id,timestamp,
             sensor_type,value_state,alarm FROM read_parquet(?,hive_partitioning=false) e
             SEMI JOIN selected_channels USING(channel_id) WHERE value_state IS NOT NULL
@@ -286,6 +322,7 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
         following = next(groups,None)
         old,new = RecoveryResetPolicy(allow_reset=False),RecoveryResetPolicy(allow_reset=True)
         old_rows,new_rows=[],[]
+        specialist_gated_decisions = 0
         for at,frame in past.groupby("prediction_time",sort=True):
             when=at.to_pydatetime()
             while following is not None and following[0][0]<=when:
@@ -294,7 +331,9 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
                 new.observe_group(events)
                 following=next(groups,None)
             candidates=frame.drop(columns="prediction_time").to_dict("records")
+            old_candidates,new_candidates=[],[]
             for row in candidates:
+                specialist_score = row.pop("specialist_score",None)
                 row["blocking_qa_count_24h"]=int(row["blocking_qa_count_24h"])
                 for name in ["admission_evidence_through","last_explicit_normal_at"]:
                     row[name]=row[name].to_pydatetime() if pd.notna(row[name]) else None
@@ -305,8 +344,19 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
                          when-row["last_explicit_normal_at"] > timedelta(
                              hours=smoke_max_normal_age_hours))
                 )
-            old_rows.extend(old.decide(when,candidates))
-            new_rows.extend(new.decide(when,candidates))
+                old_row,new_row = row.copy(),row.copy()
+                if (specialist_threshold is not None
+                        and row["sensor_type"] in {"Датчик дыма","Состояние фазы"}
+                        and specialist_score < specialist_threshold):
+                    if standard_warning_available(old,row["channel_id"],when):
+                        old_row["above_threshold"] = False
+                    if standard_warning_available(new,row["channel_id"],when):
+                        specialist_gated_decisions += int(new_row["above_threshold"])
+                        new_row["above_threshold"] = False
+                old_candidates.append(old_row)
+                new_candidates.append(new_row)
+            old_rows.extend(old.decide(when,old_candidates))
+            new_rows.extend(new.decide(when,new_candidates))
         reader.close()
         if not all(row["past_state_agrees_with_admission"] for row in new_rows):
             raise AssertionError("raw state disagrees with full-context admission")
@@ -320,6 +370,10 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
             "veto_tree_threshold":veto_threshold,
             "veto_exempt_gas":veto_exempt_gas,
             "veto_tree_score_sha256":sha256(veto_score_source) if veto_score_source else None,
+            "standard_specialist_score_sha256":sha256(standard_specialist_scores)
+                if standard_specialist_scores else None,
+            "standard_specialist_threshold":specialist_threshold,
+            "standard_specialist_gated_decisions":specialist_gated_decisions,
             "year":year,"model_name":model_name,
             "model_sha256":sha256(model_path),
             "full_context_rows":total,"q3_delta_rows":delta_rows,
@@ -352,6 +406,7 @@ if __name__=="__main__":
     parser.add_argument("--veto-score-source",type=Path)
     parser.add_argument("--veto-threshold",type=float)
     parser.add_argument("--veto-exempt-gas",action="store_true")
+    parser.add_argument("--standard-specialist-scores",type=Path)
     args=parser.parse_args()
     types={name:value for name,value in [
         ("Датчик дыма",args.smoke_threshold),
@@ -359,4 +414,4 @@ if __name__=="__main__":
         ("Датчик температуры",args.temp_threshold)] if value is not None}
     run(args.output,args.threshold,args.model,args.year,types,args.score_source,
         args.smoke_max_normal_age_hours,args.veto_score_source,args.veto_threshold,
-        args.veto_exempt_gas)
+        args.veto_exempt_gas,args.standard_specialist_scores)

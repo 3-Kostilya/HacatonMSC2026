@@ -9,10 +9,21 @@ import unittest
 import duckdb
 import pandas as pd
 
-from analysis.ml_experiment_round4_full_context import assess
+from analysis.ml_experiment_round4_full_context import assess, standard_warning_available
+from analysis.q2_recovery_reset_a import RecoveryResetPolicy, WarningState
+from stage1.state_labeling.operational import segment_at
 
 
 class FullContextMetricTests(unittest.TestCase):
+    def test_standard_specialist_does_not_gate_in_cooldown_recovery(self):
+        at=datetime(2025,1,3)
+        policy=RecoveryResetPolicy(allow_reset=True)
+        self.assertTrue(standard_warning_available(policy,"channel",at))
+        policy.warnings["channel"]=WarningState(
+            segment=segment_at(at),last_warning_at=at-timedelta(hours=23))
+        self.assertFalse(standard_warning_available(policy,"channel",at))
+        self.assertTrue(standard_warning_available(policy,"channel",at+timedelta(hours=1)))
+
     def test_unknown_warning_affects_denominator_but_is_not_a_negative_label(self):
         at=datetime(2025,1,3)
         rows=[]
