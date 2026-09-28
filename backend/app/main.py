@@ -11,7 +11,9 @@ from app.routers import (
     imports,
     ingest,
     sensors,
+    raw_data,
 )
+from app.raw_pipeline import bootstrap_runtime_assets
 from app.schemas import (
     HealthResponse,
 )
@@ -51,6 +53,12 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def startup_runtime_assets():
+    bootstrap_runtime_assets()
+
+
+
 @app.get(
     "/api/health",
     response_model=HealthResponse,
@@ -80,4 +88,8 @@ app.include_router(
 
 app.include_router(
     ingest.router
+)
+
+app.include_router(
+    raw_data.router
 )

@@ -188,3 +188,48 @@ export function getSensorAssessment(
     `/api/sensors/${id}/assessment`
   );
 }
+export async function getRawCapabilities() {
+  return request<import("../types/api").RawCapabilities>(
+    "/api/raw/capabilities"
+  );
+}
+
+export async function uploadRawData(
+  journal: File,
+  channels?: File | null,
+  objects?: File | null
+) {
+  const form = new FormData();
+  form.append("journal", journal);
+  if (channels) form.append("channels", channels);
+  if (objects) form.append("objects", objects);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/raw/import`, {
+      method: "POST",
+      body: form,
+    });
+  } catch {
+    throw new Error("Не удалось подключиться к backend");
+  }
+
+  if (!response.ok) {
+    let message = `Ошибка API: ${response.status}`;
+    try {
+      const data = await response.json();
+      if (typeof data.detail === "string") message = data.detail;
+    } catch {
+      // ignore non-JSON error
+    }
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<import("../types/api").RawImportStart>;
+}
+
+export function getRawImportStatus(batchId: string) {
+  return request<import("../types/api").RawImportStatus>(
+    `/api/raw/import/${encodeURIComponent(batchId)}`
+  );
+}
