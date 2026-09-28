@@ -32,11 +32,11 @@ def literal(path: Path):
     return "'" + str(path).replace("'", "''") + "'"
 
 
-def score_delta(package: Path, destination: Path, predict):
+def score_delta(package: Path, destination: Path, predict, year: int):
     writer = None
     count = 0
     for month in [f"{i:02d}" for i in range(1, 13)]:
-        folder = package / f"year=2025/month={month}"
+        folder = package / f"year={year}/month={month}"
         manifest = read(folder / "manifest.json")
         source = folder / "new_model_features.parquet"
         if sha256(source) != manifest["files"]["new_model_features.parquet"]["sha256"]:
@@ -106,18 +106,36 @@ def assess(db, rows: list[dict], label_files: list[str], full: int):
     return metric,joined
 
 
-def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
+def run(output: Path, threshold: float = 0.992, model_name: str = "tree",
+        year: int = 2025, type_thresholds: dict[str, float] | None = None,
+        score_source: Path | None = None, smoke_max_normal_age_hours: float | None = None,
+        veto_score_source: Path | None = None, veto_threshold: float | None = None,
+        veto_exempt_gas: bool = False):
     if output.exists():
         raise FileExistsError(output)
     if model_name not in {"tree", "linear"}:
         raise ValueError("only frozen tree and linear controls are supported")
+    if year not in {2024, 2025}:
+        raise ValueError("only 2024 tuning and open 2025 evaluation are supported")
+    type_thresholds = type_thresholds or {}
+    if not all(0 <= value <= 1 for value in type_thresholds.values()):
+        raise ValueError("type thresholds must be probabilities")
+    if smoke_max_normal_age_hours is not None and smoke_max_normal_age_hours <= 0:
+        raise ValueError("normal age limit must be positive")
+    if (veto_score_source is None) != (veto_threshold is None):
+        raise ValueError("veto score source and threshold must be provided together")
+    if veto_threshold is not None and not 0 <= veto_threshold <= 1:
+        raise ValueError("veto threshold must be a probability")
+    fold = "tune" if year == 2024 else "validation"
+    full_episodes = 1204 if year == 2024 else 2142
     q2 = Path("output/q2-a-full-sparse-20260926-v5")
     q3 = Path("output/q3-a-coverage-reentry-20260927-v4")
     m1 = Path("output/milestone1/full_20260922")
     b3 = Path("output/r3-b-full-months-20260925-v2")
-    context = Path("output/ml-experiment-round2/temporal-full-context/validation_all_eligible_raw.parquet")
+    context = Path(f"output/ml-experiment-round2/temporal-full-context/{fold}_all_eligible_raw.parquet")
     temporal = read(context.parent / "report.json")
-    if (sha256(context) != temporal["validation_provenance"]["raw_context_sha256"]
+    provenance = temporal[f"{fold}_provenance"]
+    if (sha256(context) != provenance["raw_context_sha256"]
             or temporal["source_label_mask_used"] or not temporal["aggregation_precedes_label_join"]):
         raise AssertionError("Q2 full score context is not verified label-free")
     q3_report = read(q3 / "report.json")
@@ -153,27 +171,37 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
         predict = linear_predict
         context_column, frozen_column = "score_linear_raw", "score_linear"
     output.mkdir(parents=True)
-    delta = output / "q3_all_eligible_scores.parquet"
-    delta_rows = score_delta(q3,delta,predict)
+    if score_source is None:
+        delta = output / "q3_all_eligible_scores.parquet"
+        delta_rows = score_delta(q3,delta,predict,year)
+    else:
+        prior = read(score_source.parent / "report.json")
+        if (prior["model_name"] != model_name or prior.get("year",2025) != year
+                or prior["model_sha256"] != sha256(model_path)
+                or prior["source_q2_raw_score_sha256"] != sha256(context)
+                or prior["full_context_scores_sha256"] != sha256(score_source)):
+            raise AssertionError("reused full score stream differs")
+        delta = score_source.parent / "q3_all_eligible_scores.parquet"
+        delta_rows = prior["q3_delta_rows"]
     q3_admissions,q2_admissions,labels = [],[],[]
     q2_manifest = read(q2 / "manifest.json")
     if sha256(m1 / "manifest.json") != q2_manifest["source_manifests"]["m1"]:
         raise AssertionError("M1 source changed")
     for month in range(1,13):
-        folder = f"year=2025/month={month:02d}"
+        folder = f"year={year}/month={month:02d}"
         qm = read(q3 / folder / "manifest.json")
         qa = q3 / folder / "new_admission.parquet"
         if sha256(qa) != qm["files"]["new_admission.parquet"]["sha256"]:
             raise AssertionError("Q3 admission changed")
         q3_admissions.append(str(qa))
-        q2row = next(item for item in q2_manifest["months"] if item["month"]==f"2025-{month:02d}")
+        q2row = next(item for item in q2_manifest["months"] if item["month"]==f"{year}-{month:02d}")
         old = q2 / folder / "admission.parquet"
         if sha256(old) != q2row["files"]["admission.parquet"]["sha256"]:
             raise AssertionError("Q2 admission changed")
         q2_admissions.append(str(old))
         label = b3 / folder / "registered_forecast_labels.parquet"
         expected = next(item["sha256"] for item in q3_report["source_b3_labels"]
-                        if item["month"]==f"2025-{month:02d}")
+                        if item["month"]==f"{year}-{month:02d}")
         if sha256(label) != expected:
             raise AssertionError("B3 source labels changed")
         labels.append(str(label))
@@ -189,7 +217,7 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
         db.execute("SET threads=2")
         db.execute("SET memory_limit='2GB'")
         db.execute("SET temp_directory=?",[str(output/"duckdb-temp")])
-        frozen = Path("output/ml-experiment-round2/coverage/frozen-models/delta_validation_scores.parquet")
+        frozen = Path(f"output/ml-experiment-round2/coverage/frozen-models/delta_{fold}_scores.parquet")
         known_rows,bad_scores = db.execute(f'''SELECT COUNT(*),COUNT(*) FILTER(WHERE
             b.channel_id IS NULL OR a.sensor_type IS DISTINCT FROM b.sensor_type
             OR a.score IS DISTINCT FROM b.{frozen_column})
@@ -197,17 +225,37 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
             USING(channel_id,prediction_time)''',[str(frozen),str(delta)]).fetchone()
         if bad_scores or known_rows == 0:
             raise AssertionError("full-context Q3 scores differ from saved binary control")
-        source = output / "full_context_scores.parquet"
-        db.execute(f'''COPY (SELECT channel_id,prediction_time,sensor_type,
-            {context_column} AS score FROM read_parquet({literal(context)})
-            UNION ALL SELECT * FROM read_parquet({literal(delta)}))
-            TO {literal(source)} (FORMAT PARQUET,COMPRESSION ZSTD)''')
+        source = score_source or output / "full_context_scores.parquet"
+        if score_source is None:
+            db.execute(f'''COPY (SELECT channel_id,prediction_time,sensor_type,
+                {context_column} AS score FROM read_parquet({literal(context)})
+                UNION ALL SELECT * FROM read_parquet({literal(delta)}))
+                TO {literal(source)} (FORMAT PARQUET,COMPRESSION ZSTD)''')
         total,dupes = db.execute('''SELECT COUNT(*),COUNT(*)-COUNT(DISTINCT(channel_id,prediction_time))
             FROM read_parquet(?)''',[str(source)]).fetchone()
-        if dupes or total!=16708079+delta_rows:
+        if dupes or total!=provenance["eligible_context_rows"]+delta_rows:
             raise AssertionError("Q2+Q3 full-context keys differ")
-        db.execute('''CREATE TEMP TABLE scores AS SELECT * FROM read_parquet(?)
-            WHERE score>=?''',[str(source),threshold])
+        db.execute('''CREATE TEMP TABLE candidate_scores AS SELECT * FROM read_parquet(?)
+            WHERE score >= CASE sensor_type
+              WHEN 'Датчик дыма' THEN ? WHEN 'Состояние фазы' THEN ?
+              WHEN 'Датчик температуры' THEN ? ELSE ? END''',
+            [str(source),type_thresholds.get("Датчик дыма",threshold),
+             type_thresholds.get("Состояние фазы",threshold),
+             type_thresholds.get("Датчик температуры",threshold),threshold])
+        if veto_score_source is not None:
+            veto = read(veto_score_source.parent / "report.json")
+            if (veto["model_name"] != "tree" or veto.get("year",2025) != year
+                    or veto["model_sha256"] != temporal["source_models"]["pooled"]["sha256"]
+                    or veto["full_context_scores_sha256"] != sha256(veto_score_source)
+                    or veto["full_context_rows"] != total):
+                raise AssertionError("auxiliary frozen tree score source differs")
+            db.execute('''CREATE TEMP TABLE scores AS SELECT a.* FROM candidate_scores a
+                JOIN read_parquet(?) v USING(channel_id,prediction_time)
+                WHERE a.sensor_type=v.sensor_type
+                AND (v.score>=? OR (? AND a.sensor_type='Газовый датчик'))''',
+                [str(veto_score_source),veto_threshold,veto_exempt_gas])
+        else:
+            db.execute("CREATE TEMP TABLE scores AS SELECT * FROM candidate_scores")
         decisions = db.execute("SELECT COUNT(*) FROM scores").fetchone()[0]
         db.execute("CREATE TEMP TABLE selected_channels AS SELECT DISTINCT channel_id FROM scores")
         admission_query = '''SELECT channel_id,prediction_time,sensor_type,
@@ -227,10 +275,10 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
         if (len(past)!=decisions or past.duplicated(["channel_id","prediction_time"]).any()
                 or not past.admission_status.eq("eligible").all()):
             raise AssertionError("all score decisions lack exact protected admission")
-        db.execute('''CREATE TEMP TABLE events AS SELECT row_id,channel_id,timestamp,
+        db.execute(f'''CREATE TEMP TABLE events AS SELECT row_id,channel_id,timestamp,
             sensor_type,value_state,alarm FROM read_parquet(?,hive_partitioning=false) e
             SEMI JOIN selected_channels USING(channel_id) WHERE value_state IS NOT NULL
-            AND timestamp>=TIMESTAMP '2019-01-01' AND timestamp<TIMESTAMP '2026-01-01'
+            AND timestamp>=TIMESTAMP '2019-01-01' AND timestamp<TIMESTAMP '{year+1}-01-01'
             AND year(timestamp)<>2021 AND split_part(replace(source,chr(92),'/'),'/',-1)=
             'ext-journal-' || CAST(year(timestamp) AS VARCHAR) || '.7z' ''',[raw])
         reader = db.execute("SELECT * FROM events ORDER BY timestamp,channel_id,row_id").to_arrow_reader(batch_size=100000)
@@ -247,21 +295,32 @@ def run(output: Path, threshold: float = 0.992, model_name: str = "tree"):
                 following=next(groups,None)
             candidates=frame.drop(columns="prediction_time").to_dict("records")
             for row in candidates:
-                row["above_threshold"]=True
                 row["blocking_qa_count_24h"]=int(row["blocking_qa_count_24h"])
                 for name in ["admission_evidence_through","last_explicit_normal_at"]:
                     row[name]=row[name].to_pydatetime() if pd.notna(row[name]) else None
+                row["above_threshold"] = not (
+                    smoke_max_normal_age_hours is not None
+                    and row["sensor_type"] == "Датчик дыма"
+                    and (row["last_explicit_normal_at"] is None or
+                         when-row["last_explicit_normal_at"] > timedelta(
+                             hours=smoke_max_normal_age_hours))
+                )
             old_rows.extend(old.decide(when,candidates))
             new_rows.extend(new.decide(when,candidates))
         reader.close()
         if not all(row["past_state_agrees_with_admission"] for row in new_rows):
             raise AssertionError("raw state disagrees with full-context admission")
-        old_metric,old_alerts=assess(db,old_rows,labels,2142)
-        new_metric,new_alerts=assess(db,new_rows,labels,2142)
+        old_metric,old_alerts=assess(db,old_rows,labels,full_episodes)
+        new_metric,new_alerts=assess(db,new_rows,labels,full_episodes)
     old_alerts.to_parquet(output/"control_warnings.parquet",index=False)
     new_alerts.to_parquet(output/"candidate_warnings.parquet",index=False)
     report={"status":"ALL_ELIGIBLE_CONTEXT_UNKNOWN_OUTCOMES_PRESERVED",
-            "threshold":threshold,"model_name":model_name,
+            "threshold":threshold,"type_thresholds":type_thresholds,
+            "smoke_max_normal_age_hours":smoke_max_normal_age_hours,
+            "veto_tree_threshold":veto_threshold,
+            "veto_exempt_gas":veto_exempt_gas,
+            "veto_tree_score_sha256":sha256(veto_score_source) if veto_score_source else None,
+            "year":year,"model_name":model_name,
             "model_sha256":sha256(model_path),
             "full_context_rows":total,"q3_delta_rows":delta_rows,
             "above_threshold_decisions":decisions,"q3_known_score_parity_rows":known_rows,
@@ -284,5 +343,20 @@ if __name__=="__main__":
     parser.add_argument("--output",type=Path,default=Path("output/ml-experiment-round4/q3-full-context-th992"))
     parser.add_argument("--threshold",type=float,default=0.992)
     parser.add_argument("--model",choices=["tree","linear"],default="tree")
+    parser.add_argument("--year",type=int,choices=[2024,2025],default=2025)
+    parser.add_argument("--smoke-threshold",type=float)
+    parser.add_argument("--phase-threshold",type=float)
+    parser.add_argument("--temp-threshold",type=float)
+    parser.add_argument("--score-source",type=Path)
+    parser.add_argument("--smoke-max-normal-age-hours",type=float)
+    parser.add_argument("--veto-score-source",type=Path)
+    parser.add_argument("--veto-threshold",type=float)
+    parser.add_argument("--veto-exempt-gas",action="store_true")
     args=parser.parse_args()
-    run(args.output,args.threshold,args.model)
+    types={name:value for name,value in [
+        ("Датчик дыма",args.smoke_threshold),
+        ("Состояние фазы",args.phase_threshold),
+        ("Датчик температуры",args.temp_threshold)] if value is not None}
+    run(args.output,args.threshold,args.model,args.year,types,args.score_source,
+        args.smoke_max_normal_age_hours,args.veto_score_source,args.veto_threshold,
+        args.veto_exempt_gas)
