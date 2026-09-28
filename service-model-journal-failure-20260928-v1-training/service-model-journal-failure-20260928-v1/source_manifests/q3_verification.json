@@ -1,0 +1,548 @@
+{
+  "status": "independent_delta_invariants_features_and_oracle_verified",
+  "source_manifest_sha256": "294d8d3a4cadb640737ec39f7adef2c8d344fcd8d4398724fcb779ebabcdf4db",
+  "months": [
+    {
+      "month": "2019-01",
+      "rows": 344937,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-02",
+      "rows": 97593,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-03",
+      "rows": 8239,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-04",
+      "rows": 7446,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-05",
+      "rows": 7553,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-06",
+      "rows": 8261,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-07",
+      "rows": 3324,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-08",
+      "rows": 7645,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-09",
+      "rows": 6450,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-10",
+      "rows": 12402,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-11",
+      "rows": 9217,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2019-12",
+      "rows": 27473,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-01",
+      "rows": 64376,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-02",
+      "rows": 110249,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-03",
+      "rows": 18336,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-04",
+      "rows": 5550,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-05",
+      "rows": 5613,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-06",
+      "rows": 13603,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-07",
+      "rows": 16781,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-08",
+      "rows": 12080,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-09",
+      "rows": 25879,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-10",
+      "rows": 15354,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-11",
+      "rows": 8501,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2020-12",
+      "rows": 18977,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-01",
+      "rows": 444834,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-02",
+      "rows": 259417,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-03",
+      "rows": 19167,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-04",
+      "rows": 32080,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-05",
+      "rows": 204682,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-06",
+      "rows": 42269,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-07",
+      "rows": 32165,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-08",
+      "rows": 20918,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-09",
+      "rows": 12238,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-10",
+      "rows": 12974,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-11",
+      "rows": 18870,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2022-12",
+      "rows": 14290,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-01",
+      "rows": 16182,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-02",
+      "rows": 16061,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-03",
+      "rows": 18842,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-04",
+      "rows": 11865,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-05",
+      "rows": 13364,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-06",
+      "rows": 11052,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-07",
+      "rows": 17638,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-08",
+      "rows": 15883,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-09",
+      "rows": 14536,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-10",
+      "rows": 12329,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-11",
+      "rows": 13428,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2023-12",
+      "rows": 14026,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-01",
+      "rows": 9414,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-02",
+      "rows": 14897,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-03",
+      "rows": 9008,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-04",
+      "rows": 10995,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-05",
+      "rows": 7288,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-06",
+      "rows": 9206,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-07",
+      "rows": 11888,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-08",
+      "rows": 9324,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-09",
+      "rows": 12538,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-10",
+      "rows": 9825,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-11",
+      "rows": 12255,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2024-12",
+      "rows": 13595,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-01",
+      "rows": 12835,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-02",
+      "rows": 8099,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-03",
+      "rows": 14099,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-04",
+      "rows": 14585,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-05",
+      "rows": 7177,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-06",
+      "rows": 16889,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-07",
+      "rows": 10739,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-08",
+      "rows": 7161,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-09",
+      "rows": 12836,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-10",
+      "rows": 15237,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-11",
+      "rows": 14242,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    },
+    {
+      "month": "2025-12",
+      "rows": 145325,
+      "guard_violations": 0,
+      "base_feature_mismatches": 0,
+      "key_mismatches": 0
+    }
+  ],
+  "new_rows_verified": 2554406,
+  "positive_rows_unchanged": 95217,
+  "validation_episode_partition": {
+    "already_available": 1359,
+    "later_normal_only": 581,
+    "still_protected": 19,
+    "cold_start_only": 117,
+    "needs_both_ablations": 66
+  },
+  "oracle": {
+    "base": {
+      "available_episodes": 1359,
+      "maximum_matched_at_24h_cooldown": 1116,
+      "full_recall_capacity_at_24h_cooldown": 0.5210084033613446,
+      "greedy_dp_agreement": true
+    },
+    "cold_start": {
+      "available_episodes": 1476,
+      "maximum_matched_at_24h_cooldown": 1189,
+      "full_recall_capacity_at_24h_cooldown": 0.5550887021475257,
+      "greedy_dp_agreement": true
+    },
+    "after_normal": {
+      "available_episodes": 1940,
+      "maximum_matched_at_24h_cooldown": 1234,
+      "full_recall_capacity_at_24h_cooldown": 0.5760971055088702,
+      "greedy_dp_agreement": true
+    },
+    "combined": {
+      "available_episodes": 2123,
+      "maximum_matched_at_24h_cooldown": 1345,
+      "full_recall_capacity_at_24h_cooldown": 0.6279178338001867,
+      "greedy_dp_agreement": true
+    }
+  },
+  "oracle_uses_future_labels_not_model_quality": true,
+  "production_or_joint_approval": false,
+  "elapsed_seconds": 68.884
+}

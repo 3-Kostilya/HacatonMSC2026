@@ -1,0 +1,737 @@
+{
+  "schema_version": "round2-q3-research-intake-v1",
+  "all_features": [
+    "sensor_type",
+    "last_observation_age_seconds",
+    "baseline_event_count",
+    "baseline_state_count",
+    "event_count_1h",
+    "alarm_count_1h",
+    "state_count_1h",
+    "state_transitions_1h",
+    "state_distinct_count_1h",
+    "maximum_gap_seconds_1h",
+    "event_count_6h",
+    "alarm_count_6h",
+    "state_count_6h",
+    "state_transitions_6h",
+    "state_distinct_count_6h",
+    "maximum_gap_seconds_6h",
+    "event_count_24h",
+    "alarm_count_24h",
+    "state_count_24h",
+    "state_transitions_24h",
+    "state_distinct_count_24h",
+    "maximum_gap_seconds_24h",
+    "event_count_168h",
+    "alarm_count_168h",
+    "state_count_168h",
+    "state_transitions_168h",
+    "state_distinct_count_168h",
+    "maximum_gap_seconds_168h",
+    "technical_message_count_1h",
+    "registered_fault_text_count_1h",
+    "normal_message_count_1h",
+    "environmental_alarm_count_1h",
+    "unknown_state_count_1h",
+    "technical_message_count_6h",
+    "registered_fault_text_count_6h",
+    "normal_message_count_6h",
+    "environmental_alarm_count_6h",
+    "unknown_state_count_6h",
+    "technical_message_count_24h",
+    "registered_fault_text_count_24h",
+    "normal_message_count_24h",
+    "environmental_alarm_count_24h",
+    "unknown_state_count_24h",
+    "technical_message_count_168h",
+    "registered_fault_text_count_168h",
+    "normal_message_count_168h",
+    "environmental_alarm_count_168h",
+    "unknown_state_count_168h",
+    "last_completed_episode_end_age_seconds",
+    "completed_episode_count_168h",
+    "completed_episode_mean_duration_seconds_168h",
+    "qa_temperature_service_code_candidate_count_1h",
+    "qa_epoch_value_artifact_count_1h",
+    "qa_gas_negative_reading_count_1h",
+    "qa_gas_above_physical_percent_count_1h",
+    "qa_gas_alarm_level_candidate_count_1h",
+    "qa_temperature_service_code_candidate_count_6h",
+    "qa_epoch_value_artifact_count_6h",
+    "qa_gas_negative_reading_count_6h",
+    "qa_gas_above_physical_percent_count_6h",
+    "qa_gas_alarm_level_candidate_count_6h",
+    "qa_temperature_service_code_candidate_count_24h",
+    "qa_epoch_value_artifact_count_24h",
+    "qa_gas_negative_reading_count_24h",
+    "qa_gas_above_physical_percent_count_24h",
+    "qa_gas_alarm_level_candidate_count_24h",
+    "qa_temperature_service_code_candidate_count_168h",
+    "qa_epoch_value_artifact_count_168h",
+    "qa_gas_negative_reading_count_168h",
+    "qa_gas_above_physical_percent_count_168h",
+    "qa_gas_alarm_level_candidate_count_168h",
+    "missing__last_observation_age_seconds",
+    "missing__baseline_event_count",
+    "missing__baseline_state_count",
+    "missing__event_count_1h",
+    "missing__alarm_count_1h",
+    "missing__state_count_1h",
+    "missing__state_transitions_1h",
+    "missing__state_distinct_count_1h",
+    "missing__maximum_gap_seconds_1h",
+    "missing__event_count_6h",
+    "missing__alarm_count_6h",
+    "missing__state_count_6h",
+    "missing__state_transitions_6h",
+    "missing__state_distinct_count_6h",
+    "missing__maximum_gap_seconds_6h",
+    "missing__event_count_24h",
+    "missing__alarm_count_24h",
+    "missing__state_count_24h",
+    "missing__state_transitions_24h",
+    "missing__state_distinct_count_24h",
+    "missing__maximum_gap_seconds_24h",
+    "missing__event_count_168h",
+    "missing__alarm_count_168h",
+    "missing__state_count_168h",
+    "missing__state_transitions_168h",
+    "missing__state_distinct_count_168h",
+    "missing__maximum_gap_seconds_168h",
+    "missing__technical_message_count_1h",
+    "missing__registered_fault_text_count_1h",
+    "missing__normal_message_count_1h",
+    "missing__environmental_alarm_count_1h",
+    "missing__unknown_state_count_1h",
+    "missing__technical_message_count_6h",
+    "missing__registered_fault_text_count_6h",
+    "missing__normal_message_count_6h",
+    "missing__environmental_alarm_count_6h",
+    "missing__unknown_state_count_6h",
+    "missing__technical_message_count_24h",
+    "missing__registered_fault_text_count_24h",
+    "missing__normal_message_count_24h",
+    "missing__environmental_alarm_count_24h",
+    "missing__unknown_state_count_24h",
+    "missing__technical_message_count_168h",
+    "missing__registered_fault_text_count_168h",
+    "missing__normal_message_count_168h",
+    "missing__environmental_alarm_count_168h",
+    "missing__unknown_state_count_168h",
+    "missing__last_completed_episode_end_age_seconds",
+    "missing__completed_episode_count_168h",
+    "missing__completed_episode_mean_duration_seconds_168h"
+  ],
+  "full_episode_count": {
+    "train": 5934,
+    "tune": 1204,
+    "validation": 2142
+  },
+  "full_episode_count_by_type": {
+    "train": {
+      "КД Люк": 1,
+      "Ручной извещатель": 5,
+      "КД АВ": 26,
+      "Датчик температуры": 14,
+      "Состояние УИР-Р": 4,
+      "Датчик движения": 84,
+      "Состояние насоса": 2,
+      "Газовый датчик": 95,
+      "ИБП": 84,
+      "КД Дверь": 24,
+      "Состояние вентилятора": 2,
+      "Датчик дыма": 5295,
+      "Состояние фазы": 298
+    },
+    "tune": {
+      "КД Люк": 7,
+      "КД АВ": 15,
+      "Датчик температуры": 3,
+      "Датчик движения": 10,
+      "Состояние насоса": 3,
+      "Газовый датчик": 3,
+      "ИБП": 3,
+      "КД Дверь": 6,
+      "Состояние вентилятора": 1,
+      "Датчик дыма": 961,
+      "Состояние фазы": 192
+    },
+    "validation": {
+      "КД Люк": 2,
+      "Ручной извещатель": 142,
+      "КД АВ": 11,
+      "Состояние УИР-Р": 12,
+      "Датчик температуры": 408,
+      "Датчик движения": 12,
+      "Состояние насоса": 2,
+      "Газовый датчик": 56,
+      "ИБП": 37,
+      "Датчик затопления": 1,
+      "Тепловой датчик": 1,
+      "КД Дверь": 5,
+      "Датчик дыма": 1118,
+      "Состояние фазы": 335
+    }
+  },
+  "row_stats": {
+    "train": {
+      "rows": 1011240,
+      "positive_hours": 56299,
+      "available_episodes": 5913
+    },
+    "tune": {
+      "rows": 10121122,
+      "positive_hours": 18921,
+      "available_episodes": 1203
+    },
+    "validation": {
+      "rows": 14136113,
+      "positive_hours": 19285,
+      "available_episodes": 2123
+    }
+  },
+  "train_years": [
+    2019,
+    2020,
+    2022,
+    2023
+  ],
+  "tune_year": 2024,
+  "validation_year": 2025,
+  "negative_sampling_fraction": 0.02,
+  "boundary_rule": "label_available_at strictly before next fold boundary",
+  "source_hashes": {
+    "q2": "c9775a94bfcff09d1c641b010b93d62e9927209017ccbc7346749f78525de619",
+    "b3": "f5bf90b3f5878a749e12d1cfd7f36b843c6e97d38f2c033c1af1f6672d9332f9"
+  },
+  "elapsed_seconds": 124.94133409999995,
+  "test_2026_read": false,
+  "validation_2025_is_already_open": true,
+  "files": {
+    "train": {
+      "path": "train.parquet",
+      "sha256": "a0548541d07b48bc02041140c6b475f83ff2ac662deb472db752aa0b7b7db60b"
+    },
+    "tune": {
+      "path": "tune.parquet",
+      "sha256": "7bcbd08a1c40838301940cc0cc2553192330f14877223758296cb45db3f660be"
+    },
+    "validation": {
+      "path": "validation.parquet",
+      "sha256": "7506ab4a814beb82be6fa1e427ca0a5a569fd6b5f64857cb454f5402743fcd2f"
+    }
+  },
+  "source_q3_manifest_sha256": "294d8d3a4cadb640737ec39f7adef2c8d344fcd8d4398724fcb779ebabcdf4db",
+  "independent_source_verification_sha256": "c86cd6de7feae714197de52c3e696f6a3701bf849714dc53d21a25465982db2a",
+  "independent_intake_checks": [
+    {
+      "month": "2019-01",
+      "added_binary_sampled_rows": 5957,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-02",
+      "added_binary_sampled_rows": 1491,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-03",
+      "added_binary_sampled_rows": 104,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-04",
+      "added_binary_sampled_rows": 70,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-05",
+      "added_binary_sampled_rows": 118,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-06",
+      "added_binary_sampled_rows": 95,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-07",
+      "added_binary_sampled_rows": 53,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-08",
+      "added_binary_sampled_rows": 110,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-09",
+      "added_binary_sampled_rows": 109,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-10",
+      "added_binary_sampled_rows": 198,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-11",
+      "added_binary_sampled_rows": 107,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2019-12",
+      "added_binary_sampled_rows": 188,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-01",
+      "added_binary_sampled_rows": 5218,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-02",
+      "added_binary_sampled_rows": 1137,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-03",
+      "added_binary_sampled_rows": 214,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-04",
+      "added_binary_sampled_rows": 63,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-05",
+      "added_binary_sampled_rows": 64,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-06",
+      "added_binary_sampled_rows": 188,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-07",
+      "added_binary_sampled_rows": 151,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-08",
+      "added_binary_sampled_rows": 172,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-09",
+      "added_binary_sampled_rows": 329,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-10",
+      "added_binary_sampled_rows": 159,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-11",
+      "added_binary_sampled_rows": 102,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2020-12",
+      "added_binary_sampled_rows": 254,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-01",
+      "added_binary_sampled_rows": 7092,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-02",
+      "added_binary_sampled_rows": 4919,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-03",
+      "added_binary_sampled_rows": 281,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-04",
+      "added_binary_sampled_rows": 600,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-05",
+      "added_binary_sampled_rows": 10082,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-06",
+      "added_binary_sampled_rows": 1404,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-07",
+      "added_binary_sampled_rows": 2689,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-08",
+      "added_binary_sampled_rows": 1533,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-09",
+      "added_binary_sampled_rows": 139,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-10",
+      "added_binary_sampled_rows": 180,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-11",
+      "added_binary_sampled_rows": 213,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2022-12",
+      "added_binary_sampled_rows": 184,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-01",
+      "added_binary_sampled_rows": 236,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-02",
+      "added_binary_sampled_rows": 272,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-03",
+      "added_binary_sampled_rows": 308,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-04",
+      "added_binary_sampled_rows": 178,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-05",
+      "added_binary_sampled_rows": 304,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-06",
+      "added_binary_sampled_rows": 122,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-07",
+      "added_binary_sampled_rows": 213,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-08",
+      "added_binary_sampled_rows": 264,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-09",
+      "added_binary_sampled_rows": 193,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-10",
+      "added_binary_sampled_rows": 205,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-11",
+      "added_binary_sampled_rows": 197,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2023-12",
+      "added_binary_sampled_rows": 201,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-01",
+      "added_binary_sampled_rows": 6940,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-02",
+      "added_binary_sampled_rows": 10677,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-03",
+      "added_binary_sampled_rows": 7112,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-04",
+      "added_binary_sampled_rows": 6960,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-05",
+      "added_binary_sampled_rows": 4661,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-06",
+      "added_binary_sampled_rows": 6636,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-07",
+      "added_binary_sampled_rows": 9285,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-08",
+      "added_binary_sampled_rows": 6005,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-09",
+      "added_binary_sampled_rows": 10700,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-10",
+      "added_binary_sampled_rows": 6748,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-11",
+      "added_binary_sampled_rows": 8627,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2024-12",
+      "added_binary_sampled_rows": 9613,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-01",
+      "added_binary_sampled_rows": 10514,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-02",
+      "added_binary_sampled_rows": 5926,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-03",
+      "added_binary_sampled_rows": 10874,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-04",
+      "added_binary_sampled_rows": 11915,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-05",
+      "added_binary_sampled_rows": 5471,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-06",
+      "added_binary_sampled_rows": 11978,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-07",
+      "added_binary_sampled_rows": 7948,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-08",
+      "added_binary_sampled_rows": 5018,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-09",
+      "added_binary_sampled_rows": 9191,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-10",
+      "added_binary_sampled_rows": 9196,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-11",
+      "added_binary_sampled_rows": 8532,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    },
+    {
+      "month": "2025-12",
+      "added_binary_sampled_rows": 94030,
+      "guard_violations": 0,
+      "base_overlap": 0,
+      "metadata_mismatches": 0
+    }
+  ],
+  "admission_policy": "combined",
+  "physical_availability_approved": false,
+  "production_admission_changed": false,
+  "scope": "separate research extension, unknown outcomes remain unknown"
+}
