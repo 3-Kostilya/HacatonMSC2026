@@ -1,0 +1,46 @@
+{
+  "schema_version": "q3-a-coverage-reentry-research-v1",
+  "status": "research_proposal_joint_b_review_required",
+  "source_q2_manifest_sha256": "c9775a94bfcff09d1c641b010b93d62e9927209017ccbc7346749f78525de619",
+  "source_m1_manifest_sha256": "2fc2a1fd534e3c1bb33947c358c973a28698140732700f5778cc507dfb65bed0",
+  "policies": ["cold_start", "after_normal", "combined"],
+  "causal_input": "certified_Q2_past_snapshot_plus_complete_M1_past_quality_prefix",
+  "cold_start": {
+    "relaxed_reason": "insufficient_history",
+    "minimum_distinct_usable_timestamps": 2,
+    "minimum_elapsed_history_days": 0,
+    "recent_exact_normal_hours": 168,
+    "missing_statistics": "retain_null_and_existing_missingness_masks"
+  },
+  "after_normal": {
+    "relaxed_reason": "quality_exclusions_24h",
+    "required_order": "last_channel_time_conflict < last_unambiguous_exact_normal <= prediction_time",
+    "all_quality_rows_in_last_24h_must_be_conflict_only": true,
+    "nonfinite_numeric_or_invalid_timestamp_in_last_24h": "always_block",
+    "conflicted_historical_measurements": "remain_excluded_from_base_features",
+    "same_second_normal_and_fault": "never_order_or_accept_as_recovery",
+    "meaning": "new_registered_state_checkpoint_not_physical_repair_or_uptime"
+  },
+  "retained_guards": [
+    "known_nonconflicting_sensor_type",
+    "explicit_normal_known_by_prediction_in_current_archive_segment",
+    "no_active_or_uncertain_registered_episode",
+    "no_unknown_type_since_normal",
+    "no_usable_same_second_state_ambiguity_in_last_24h",
+    "no_epoch_artifact_temperature_service_code_or_gas_above_physical_percent_in_last_24h",
+    "closed_complete_channel_second_groups",
+    "no_history_transfer_across_excluded_2021"
+  ],
+  "coverage_scope": "all_72_train_validation_months_all_existing_106454425_causal_grid_points",
+  "model_features": "unchanged_121_fields_original_Q2_plus_new_delta_filtered_by_policy",
+  "labels_changed": false,
+  "unknown_future_labels_become_zero": false,
+  "recall_denominator": "all_assigned_positive_episodes_including_unavailable",
+  "physical_availability_status": "unknown",
+  "production_gate_changed": false,
+  "frozen_r6_changed": false,
+  "old_2026_test_used": false,
+  "joint_approved": false,
+  "deployment_approved": false,
+  "model_selection": "predeclared_internal_chronological_train_folds_before_any_new_threshold_selection"
+}
