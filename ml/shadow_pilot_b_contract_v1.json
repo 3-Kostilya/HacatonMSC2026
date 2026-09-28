@@ -1,0 +1,30 @@
+{
+  "schema_version": "r6-b-shadow-pilot-contract-v1",
+  "status": "b_contract_ready_a_past_only_admission_pending",
+  "source_r6_freeze_lf_sha256": "02d397b8a8d734449ec852504836e759e1a605a28f059befb4738b213a13d9d9",
+  "rule_version": "r4-b-past-state-counts-v1",
+  "frozen_threshold": 7.1,
+  "forecast_horizon_hours": 24,
+  "per_channel_cooldown_hours": 24,
+  "delivery_mode": "record_only",
+  "automatic_action_allowed": false,
+  "physical_failure_claim": false,
+  "prospective_admission_verified": false,
+  "allowed_admission_statuses": ["eligible", "unknown", "excluded"],
+  "required_identity_fields": ["channel_id", "sensor_type", "prediction_time"],
+  "required_evidence_fields_for_eligible": ["history_through", "admission_through"],
+  "required_rule_inputs_for_eligible": [
+    "registered_fault_text_count_24h",
+    "registered_fault_text_count_168h",
+    "completed_episode_count_168h",
+    "technical_message_count_24h"
+  ],
+  "retrospective_r3_label_based_admission_allowed": false,
+  "future_label_fields_allowed": false,
+  "unavailable_score_means_zero_risk": false,
+  "research_budget_unmatched_warnings_per_1000_channel_days": 2.0,
+  "product_budget_approved": false,
+  "observable_warning_load_is_not_false_warning_rate": true,
+  "fresh_outcomes_required_for_new_quality_claim": true,
+  "historical_replay_is_new_independent_test": false
+}

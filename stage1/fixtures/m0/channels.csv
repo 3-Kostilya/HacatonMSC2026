@@ -1,0 +1,6 @@
+ид_канала_данных,тип_инж_системы,тип_датчика,тег_инженерной_системы,название_датчика
+numeric,test,Датчик температуры,,Synthetic numeric
+state,test,Датчик дыма,,Synthetic state
+mixed,test,Датчик температуры,,Synthetic mixed
+gap,test,КД Дверь,,Synthetic gap
+conflict,test,Датчик температуры,,Synthetic conflict

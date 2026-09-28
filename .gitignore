@@ -59,3 +59,46 @@ data/store/forecasts/*.parquet
 data/store/episodes/*.parquet
 !data/store/episodes/.gitkeep
 .env
+# Raw source files stay local. Keep the directory itself in the repository.
+/data/*
+!/data/.gitkeep
+/dataset/
+
+# Local environments and IDE settings
+.venv/
+venv/
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+
+# Generated data, reports and trained models
+/output/
+/tmp/
+/analysis/results/
+*.cbm
+*.pkl
+*.parquet
+*.npy
+*.7z
+catboost_info/
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+
+Город 8. ДЖКХ.pdf
+saw dataset.ipynb

@@ -1,0 +1,11 @@
+{
+  "fixture_version": "ml-m0-v1",
+  "input_rows": 32,
+  "accepted_rows": 31,
+  "exact_duplicates": 1,
+  "unknown_channel_rows": 1,
+  "conflict_rows": 2,
+  "object_mapping_available": false,
+  "numeric_episode_starts": ["2026-01-01 12:00:00", "2026-01-01 18:00:00"],
+  "boundary_at": "2026-01-01 12:00:00"
+}

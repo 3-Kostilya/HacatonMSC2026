@@ -1,0 +1,29 @@
+{
+  "schema_version": "shadow-pilot-b-p1-review-v1",
+  "status": "historical_p1_a_admission_accepted_for_technical_replay_only",
+  "review_date": "2026-09-26",
+  "source_a_published_manifest_sha256": "34dcb3505961621fb16e1b03d6fecd1ca196dbc9fa28836840340a6f4001b17e",
+  "source_a_published_report_sha256": "ea86ee250de88f1cc8971e109479783bbd4fd3502cdfc7e5aef82db298b21c1b",
+  "source_b_independent_replay_manifest_sha256": "50d51cf2d73ad70681a4d5eb0d108af0cd9db7f8e3b99e59c7963182ff1d3175",
+  "source_b_shadow_decisions_manifest_sha256": "7b6a552bc923700006276eabce23f01ab73fe396901dbc8f809e5b540ef63ddb",
+  "source_b_a3_audit_report_sha256": "8b1957a7307d98f3a38f9b4e4f433a351e4f4122a5cda1174f06d5f459b2d21d",
+  "a_prediction_and_b_input_files_bitwise_reproduced": true,
+  "configured_channel_hours": 3360,
+  "conditionally_scored_hours": 111,
+  "shadow_warnings": 0,
+  "a_b_decision_mismatches": 0,
+  "a3_common_keys": 1416,
+  "four_rule_input_mismatches_on_common_keys": 0,
+  "b_checkpoint_resume_decisions_identical": true,
+  "live_admission_approved": false,
+  "customer_warning_budget_approved": false,
+  "deployment_approved": false,
+  "physical_failure_claim": false,
+  "pending": [
+    "durable_a_state_and_watermark_checkpoint_restart",
+    "actual_arrival_time_and_closed_watermark_source_contract",
+    "record_only_prospective_channel_roster_and_expected_hours",
+    "type_specific_total_warning_load_and_customer_response_budget",
+    "fresh_outcomes_for_independent_quality_evaluation"
+  ]
+}
