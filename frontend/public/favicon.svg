@@ -1,0 +1,113 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 64 64"
+>
+  <style>
+    .board {
+      fill: #263b4d;
+      stroke: #263b4d;
+    }
+
+    .trace {
+      fill: none;
+      stroke: #f4f6f7;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .chip {
+      fill: #f4f6f7;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .board {
+        fill: #9fb8c9;
+        stroke: #9fb8c9;
+      }
+
+      .trace {
+        stroke: #182129;
+      }
+
+      .chip {
+        fill: #182129;
+      }
+    }
+  </style>
+
+  <!-- Основа платы -->
+  <rect
+    class="board"
+    x="8"
+    y="8"
+    width="48"
+    height="48"
+    rx="10"
+  />
+
+  <!-- Центральный чип -->
+  <rect
+    class="chip"
+    x="24"
+    y="24"
+    width="16"
+    height="16"
+    rx="3"
+  />
+
+  <!-- Контакты чипа -->
+  <path
+    class="trace"
+    d="
+      M24 28H18
+      M24 36H18
+      M40 28H46
+      M40 36H46
+      M28 24V18
+      M36 24V18
+      M28 40V46
+      M36 40V46
+    "
+  />
+
+  <!-- Дорожки платы -->
+  <path
+    class="trace"
+    d="
+      M18 28H14V18H20
+      M18 36H13V45H20
+      M46 28H50V18H44
+      M46 36H51V46H44
+    "
+  />
+
+  <!-- Контактные точки -->
+  <circle
+    class="chip"
+    cx="20"
+    cy="18"
+    r="2.5"
+  />
+
+  <circle
+    class="chip"
+    cx="20"
+    cy="45"
+    r="2.5"
+  />
+
+  <circle
+    class="chip"
+    cx="44"
+    cy="18"
+    r="2.5"
+  />
+
+  <circle
+    class="chip"
+    cx="44"
+    cy="46"
+    r="2.5"
+  />
+</svg>

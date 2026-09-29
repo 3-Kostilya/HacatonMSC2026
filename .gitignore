@@ -1,1 +1,111 @@
 dataset
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+
+# Incoming data
+data/incoming/*
+!data/incoming/.gitkeep
+
+# Processed data
+data/processed/*
+!data/processed/.gitkeep
+
+# Failed imports
+data/failed/*
+!data/failed/.gitkeep
+
+# Runtime Parquet storage
+data/store/*.parquet
+
+data/store/events/*.parquet
+!data/store/events/.gitkeep
+
+data/store/forecasts/*.parquet
+!data/store/forecasts/.gitkeep
+
+data/store/episodes/*.parquet
+!data/store/episodes/.gitkeep
+.env
+# Raw source files stay local. Keep the directory itself in the repository.
+/data/*
+!/data/.gitkeep
+/dataset/
+
+# Local environments and IDE settings
+.venv/
+venv/
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+
+# Generated data, reports and trained models
+/output/
+/tmp/
+/analysis/results/
+/backend/data/runs/
+/backend/data/reference/*.csv
+*.cbm
+!backend/data/model/current/model.cbm
+*.pkl
+*.parquet
+*.npy
+*.7z
+catboost_info/
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+.venv/
+.venv-ml/
+venv/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+
+Город 8. ДЖКХ.pdf
+saw dataset.ipynb
+/service-model-journal-failure-*/
