@@ -7,8 +7,9 @@ export type PredictionStatus =
   | "not_available";
 
 export type SensorGroup =
-  | "failed"
-  | "warning";
+  | "healthy"
+  | "warning"
+  | "unavailable";
 
 export interface SensorListItem {
   id: string;
@@ -17,11 +18,12 @@ export interface SensorListItem {
   objectName: string | null;
   currentState: string;
 
-  // Совместимость с backend. Это индекс относительно порога, а не вероятность.
+  // Индекс относительно порога. Это не вероятность физической поломки.
   riskScore: number | null;
 
   warning: boolean | null;
   predictionStatus: PredictionStatus;
+  anomalyCandidate: boolean;
 
   // Операционное правило R6.
   ruleScore: number | null;
@@ -29,8 +31,7 @@ export interface SensorListItem {
   thresholdCrossed: boolean | null;
   mlPredictionStatus: string | null;
 
-  // Итоговая исследовательская CatBoost-модель.
-  // Score не трактуется как вероятность физической поломки.
+  // Исследовательская CatBoost-модель.
   researchScore: number | null;
   researchPredictionStatus: string | null;
 }
@@ -56,6 +57,7 @@ export interface SensorAssessment {
   riskScore: number | null;
   warning: boolean | null;
   predictionStatus: PredictionStatus;
+  anomalyCandidate: boolean;
   riskFactors: string[];
 
   ruleScore: number | null;
@@ -78,15 +80,18 @@ export interface SensorAssessment {
 
 export interface DashboardSummary {
   totalSensors: number;
-  registeredFaults: number;
+  withoutWarnings: number;
   warnings: number;
   predictionUnavailable: number;
+
+  // Оставлены в API для совместимости, но на дашборде не используются.
+  registeredFaults?: number;
+  anomalyCandidates?: number;
 }
 
 export interface HealthResponse {
   status: string;
 }
-
 
 export interface RawCapabilities {
   modelReady: boolean;

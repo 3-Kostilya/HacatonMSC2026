@@ -46,7 +46,7 @@ def get_sensors(
     group: str | None = Query(
         default=None,
         pattern=(
-            "^(failed|warning|anomaly)$"
+            "^(healthy|warning|unavailable|failed|anomaly)$"
         ),
     ),
     store: ParquetStore = Depends(

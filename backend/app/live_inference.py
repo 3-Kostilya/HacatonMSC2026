@@ -230,55 +230,66 @@ def _base_row(
     return row, _registered_state(events, prediction_time)
 
 
-def score_channels(
+def _score_channel_batch(
     store: ParquetStore,
-    channel_ids: Iterable[str],
+    model: ResearchRiskModel,
+    channel_ids: list[str],
+    latest: dict[str, datetime],
 ) -> int:
-    ids = sorted({str(value) for value in channel_ids if str(value).strip()})
-    if not ids:
-        return 0
+    """Score a bounded group of channels.
 
-    if not (RUNTIME_MODEL_DIR / "model.cbm").is_file() or not (RUNTIME_MODEL_DIR / "model_metadata.json").is_file():
-        return 0
+    The old integration loaded the full history for every affected channel in one
+    DataFrame. A monthly journal can contain millions of rows, so that approach
+    can exhaust RAM. Processing channels in bounded groups keeps the same feature
+    logic while limiting peak memory use.
+    """
 
-    model = ResearchRiskModel(RUNTIME_MODEL_DIR)
-
-    # First find each channel's latest event, then read only the history needed
-    # for 168h windows + the frozen baseline lookback/embargo.
-    latest = store.latest_event_times(ids)
     if not latest:
         return 0
+
     min_time = min(latest.values()) - HISTORY_LOOKBACK
     max_time = max(latest.values())
-    history = store.events_for_channels(ids, start_at=min_time, end_at=max_time)
+    history = store.events_for_channels(
+        channel_ids,
+        start_at=min_time,
+        end_at=max_time,
+    )
     feature_events = _feature_events(store, history)
+
     by_channel: dict[str, list[FeatureEvent]] = defaultdict(list)
     for event in feature_events:
         by_channel[event.channel_id].append(event)
 
     records: list[dict[str, Any]] = []
-    for channel_id in ids:
+    for channel_id in channel_ids:
         prediction_time = latest.get(channel_id)
         events = by_channel.get(channel_id, [])
         if prediction_time is None or not events:
             continue
 
         base, current_state = _base_row(store, model, channel_id, events, prediction_time)
-        prediction_status, unavailable_reason = _admission_status(events, prediction_time, current_state)
+        prediction_status, unavailable_reason = _admission_status(
+            events, prediction_time, current_state
+        )
+
         research_score = None
         research_status = "not_available"
         if prediction_status == "scored":
-            service = pd.DataFrame([
-                {
-                    "channel_id": channel_id,
-                    "prediction_time": prediction_time,
-                    "admission_status": "eligible",
-                    **base,
-                }
-            ])
+            service = pd.DataFrame(
+                [
+                    {
+                        "channel_id": channel_id,
+                        "prediction_time": prediction_time,
+                        "admission_status": "eligible",
+                        **base,
+                    }
+                ]
+            )
             scored = model.score(service).iloc[0]
             research_score = _to_float(scored.get("risk_score"))
-            research_status = str(scored.get("prediction_status") or "not_available")
+            research_status = str(
+                scored.get("prediction_status") or "not_available"
+            )
 
         score = 0.0
         contributions: dict[str, float] = {}
@@ -305,24 +316,39 @@ def score_channels(
                 "channel_id": channel_id,
                 "prediction_time": prediction_time,
                 "sensor_type": sensor_type,
-                "admission_status": "eligible" if prediction_status == "scored" else "unknown",
+                "admission_status": (
+                    "eligible" if prediction_status == "scored" else "unknown"
+                ),
                 "admission_reason": unavailable_reason,
                 "prediction_status": prediction_status,
                 "unavailable_reason": unavailable_reason,
                 "rule_score": score if prediction_status == "scored" else None,
                 "threshold": R6_THRESHOLD,
                 "threshold_crossed": crossed,
+                # This service does not execute automatic actions. The UI still
+                # treats an explicit threshold crossing as a warning through
+                # warning_reason/threshold_crossed.
                 "shadow_warning": False,
                 "warning_reason": warning_reason,
-                "score_contributions": contributions if prediction_status == "scored" else None,
+                "score_contributions": (
+                    contributions if prediction_status == "scored" else None
+                ),
                 "delivery_mode": "record_only",
                 "automatic_action_taken": False,
                 "history_through": prediction_time,
                 "admission_through": prediction_time,
-                "registered_fault_text_count_24h": base.get("registered_fault_text_count_24h"),
-                "registered_fault_text_count_168h": base.get("registered_fault_text_count_168h"),
-                "completed_episode_count_168h": base.get("completed_episode_count_168h"),
-                "technical_message_count_24h": base.get("technical_message_count_24h"),
+                "registered_fault_text_count_24h": base.get(
+                    "registered_fault_text_count_24h"
+                ),
+                "registered_fault_text_count_168h": base.get(
+                    "registered_fault_text_count_168h"
+                ),
+                "completed_episode_count_168h": base.get(
+                    "completed_episode_count_168h"
+                ),
+                "technical_message_count_24h": base.get(
+                    "technical_message_count_24h"
+                ),
                 "research_score": research_score,
                 "research_prediction_status": research_status,
                 "research_model_version": str(model.metadata["schema_version"]),
@@ -330,4 +356,49 @@ def score_channels(
             }
         )
 
-    return store.append_forecasts(pd.DataFrame(records)) if records else 0
+    if not records:
+        return 0
+    return store.append_forecasts(pd.DataFrame(records))
+
+
+def score_channels(
+    store: ParquetStore,
+    channel_ids: Iterable[str],
+    *,
+    batch_size: int = 250,
+) -> int:
+    """Build live forecasts for affected channels with bounded memory use."""
+
+    ids = sorted({str(value) for value in channel_ids if str(value).strip()})
+    if not ids:
+        return 0
+
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+
+    if not (RUNTIME_MODEL_DIR / "model.cbm").is_file() or not (
+        RUNTIME_MODEL_DIR / "model_metadata.json"
+    ).is_file():
+        return 0
+
+    model = ResearchRiskModel(RUNTIME_MODEL_DIR)
+    latest_all = store.latest_event_times(ids)
+    if not latest_all:
+        return 0
+
+
+    total = 0
+    for offset in range(0, len(ids), batch_size):
+        batch_ids = ids[offset : offset + batch_size]
+        batch_latest = {
+            channel_id: latest_all[channel_id]
+            for channel_id in batch_ids
+            if channel_id in latest_all
+        }
+        total += _score_channel_batch(
+            store,
+            model,
+            batch_ids,
+            batch_latest,
+        )
+    return total

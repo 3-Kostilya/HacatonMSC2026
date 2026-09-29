@@ -48,6 +48,8 @@ import type {
 
   SensorEvent,
 
+  SensorGroup,
+
   SensorListItem,
 
   RawCapabilities,
@@ -62,7 +64,7 @@ import "./App.css";
 
 
 
-type Filter = "all" | "healthy" | "warning" | "unavailable";
+type Filter = "all" | SensorGroup;
 
 type Theme = "dark" | "light";
 
@@ -251,6 +253,27 @@ function predictionStatusText(status: string | null) {
 }
 
 
+function predictionReasonText(reason: string | null) {
+
+  if (!reason) return null;
+
+  const names: Record<string, string> = {
+
+    no_history: "История событий отсутствует",
+
+    insufficient_history: "Недостаточно истории: требуется не менее 7 суток",
+
+    already_registered_fault: "Для текущего зарегистрированного состояния новый прогноз не рассчитывается",
+
+    unknown_or_conflicting_sensor_type: "Не удалось однозначно определить тип датчика",
+
+  };
+
+  return names[reason] ?? reason;
+
+}
+
+
 
 function scoreText(score: number | null, digits = 2) {
 
@@ -272,7 +295,7 @@ function displayStateText(state: string) {
 
   if (state.toLocaleLowerCase("ru-RU").includes("неисправ")) {
 
-    return "Без предупреждения";
+    return "Проблемное состояние";
 
   }
 
@@ -284,31 +307,18 @@ function displayStateText(state: string) {
 
 function displayOperationalState(state: string) {
 
-  const displayedState = displayStateText(state);
+  if (!state) return "Нет данных";
 
-  const technicalFallbacks = new Set([
+  if (state.toLocaleLowerCase("ru-RU").includes("неисправ")) {
 
-    "Под риском",
-
-    "Без прогноза",
-
-    "Прогноз рассчитан",
-
-    "Аномалия",
-
-  ]);
-
-
-
-  if (!displayedState || technicalFallbacks.has(displayedState)) {
-
-    return "История не загружена";
+    // При текущем зарегистрированном проблемном состоянии live-inference
+    // не формирует новый прогноз. Не показываем пользователю старый класс
+    // «Неисправен», но и не называем такой датчик исправным.
+    return "Без прогноза";
 
   }
 
-
-
-  return displayedState;
+  return state;
 
 }
 
@@ -418,17 +428,19 @@ function App() {
 
   async function loadOverview(selectedFilter: Filter) {
 
+    const group = selectedFilter === "all" ? undefined : selectedFilter;
+
     const [dashboardData, sensorData] = await Promise.all([
 
       getDashboardSummary(),
 
-      getSensors(),
+      getSensors(group),
 
     ]);
 
     setSummary(dashboardData);
 
-    setSensors(filterSensors(sensorData, selectedFilter));
+    setSensors(sensorData);
 
   }
 
@@ -562,9 +574,9 @@ function App() {
 
       setSearch("");
 
-      const sensorData = await getSensors();
+      const group = newFilter === "all" ? undefined : newFilter;
 
-      setSensors(filterSensors(sensorData, newFilter));
+      setSensors(await getSensors(group));
 
     } catch (err) {
 
@@ -740,6 +752,14 @@ function App() {
 
       setRawCapabilities(await getRawCapabilities());
 
+      // После импорта справочники/набор датчиков могли измениться.
+      // Не оставляем справа карточку датчика из предыдущего набора.
+      sensorRequestId.current += 1;
+      setSelectedSensor(null);
+      setActiveSensorId(null);
+      setAssessment(null);
+      setHistory([]);
+
       await loadOverview("all");
 
       setFilter("all");
@@ -864,13 +884,6 @@ function App() {
 
 
 
-  const healthyCount = summary
-
-    ? Math.max(0, summary.totalSensors - summary.warnings - summary.predictionUnavailable)
-
-    : null;
-
-
 
   return (
 
@@ -992,7 +1005,7 @@ function App() {
 
           <span>Без предупреждения</span>
 
-          <strong>{healthyCount ?? "—"}</strong>
+          <strong>{summary?.withoutWarnings ?? "—"}</strong>
 
         </article>
 
@@ -1294,7 +1307,7 @@ function App() {
 
                 {currentUnavailableReason && (
 
-                  <p className="forecast-note"><strong>Почему прогноз недоступен:</strong> {currentUnavailableReason}</p>
+                  <p className="forecast-note"><strong>Почему прогноз недоступен:</strong> {predictionReasonText(currentUnavailableReason)}</p>
 
                 )}
 
@@ -1302,7 +1315,7 @@ function App() {
 
                 {!currentUnavailableReason && currentAdmissionReason && currentPredictionStatus !== "scored" && (
 
-                  <p className="forecast-note"><strong>Причина статуса:</strong> {currentAdmissionReason}</p>
+                  <p className="forecast-note"><strong>Причина статуса:</strong> {predictionReasonText(currentAdmissionReason)}</p>
 
                 )}
 
