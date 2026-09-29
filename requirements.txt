@@ -1,1 +1,3 @@
-catboost
+# Python dependencies for the runtime application.
+# Frontend dependencies are managed by frontend/package-lock.json.
+-r backend/requirements.txt
