@@ -1,5 +1,0 @@
--r ../requirements.txt
-reportlab>=4,<5
-pdfplumber>=0.11,<1
-pypdfium2>=4,<6
-Pillow>=10,<13
