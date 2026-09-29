@@ -81,6 +81,7 @@ venv/
 /backend/data/reference/*.csv
 *.cbm
 !backend/data/model/current/model.cbm
+!ml/experimental_round7/weights/*.cbm
 *.pkl
 *.parquet
 *.npy

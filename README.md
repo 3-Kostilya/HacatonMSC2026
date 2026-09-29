@@ -51,6 +51,7 @@ npm run dev
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
 .\.venv\Scripts\python.exe -m unittest discover -s backend\tests -p "test_*.py" -q
+.\.venv\Scripts\python.exe -m unittest ml.experimental_round7.test_models -q
 cd frontend
 npm run build
 npm run lint
@@ -59,3 +60,9 @@ npm run lint
 Исследовательские отчёты, исходные архивы, полная история и код повторного
 обучения остаются в ветке `ML` и локальных артефактах, а не в этом runtime
 срезе `main`.
+
+В `ml/experimental_round7/` отдельно сохранены веса и код статического
+скоринга более позднего исследовательского кандидата. Он **не заменяет**
+действующий прогноз в API: опубликованные метрики Round 7 зависят от
+допуска Q2/Q3 и хронологических правил предупреждения, которые текущий
+веб-сервис пока не воспроизводит.
