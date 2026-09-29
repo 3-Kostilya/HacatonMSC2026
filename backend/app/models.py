@@ -88,11 +88,6 @@ FORECAST_COLUMNS = [
     "research_prediction_status",
     "research_model_version",
     "research_score_kind",
-    "round7_score_linear",
-    "round7_score_tree",
-    "round7_score_specialist",
-    "round7_passes_common_gates",
-    "round7_passes_standard_gates",
 ]
 
 EPISODE_COLUMNS = [

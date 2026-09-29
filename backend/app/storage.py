@@ -57,8 +57,6 @@ _BOOL_COLUMNS = {
     "threshold_crossed",
     "shadow_warning",
     "automatic_action_taken",
-    "round7_passes_common_gates",
-    "round7_passes_standard_gates",
 }
 
 _NUMERIC_COLUMNS = {
@@ -74,9 +72,6 @@ _NUMERIC_COLUMNS = {
     "technical_message_count_24h",
     "research_score",
     "rows_count",
-    "round7_score_linear",
-    "round7_score_tree",
-    "round7_score_specialist",
 }
 
 
@@ -93,7 +88,6 @@ def _json_dump(value: Any) -> str | None:
         text = value.strip()
         if not text:
             return None
-        # Keep valid JSON in canonical form when possible.
         try:
             parsed = json.loads(text)
         except Exception:
@@ -127,15 +121,19 @@ def _nullable_bool(value: Any) -> bool | None:
 
 
 class ParquetStore:
-    """Small operational store built on Parquet.
+    """Operational Parquet store.
 
-    Large append-only tables are directories of immutable Parquet parts, so new
-    batches do not rewrite the full history. Small mutable tables (sensors and
-    import log) are atomic snapshot files.
+    Append-only event/forecast/episode tables are stored as immutable Parquet
+    parts. Dashboard reads use a small cached latest-row snapshot instead of
+    loading the complete event history into RAM. The cache is invalidated on
+    every append, so it never hides newly imported data.
     """
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
+        self._latest_events_cache: pd.DataFrame | None = None
+        self._latest_forecasts_cache: pd.DataFrame | None = None
+        self._latest_episodes_cache: pd.DataFrame | None = None
 
     @staticmethod
     def _empty(columns: list[str]) -> pd.DataFrame:
@@ -198,7 +196,21 @@ class ParquetStore:
         return frame[columns]
 
     @staticmethod
+    def _open_dataset(directory: Path) -> ds.Dataset | None:
+        files = sorted(directory.glob("*.parquet"))
+        if not files:
+            return None
+        schemas = [pq.read_schema(path) for path in files]
+        unified_schema = pa.unify_schemas(schemas)
+        return ds.dataset(
+            [str(path) for path in files],
+            format="parquet",
+            schema=unified_schema,
+        )
+
+    @classmethod
     def _read_dataset(
+        cls,
         directory: Path,
         columns: list[str],
         *,
@@ -208,20 +220,10 @@ class ParquetStore:
         start_at: datetime | None = None,
         end_at: datetime | None = None,
     ) -> pd.DataFrame:
-        files = list(directory.glob("*.parquet"))
-        if not files:
+        dataset = cls._open_dataset(directory)
+        if dataset is None:
             return pd.DataFrame(columns=columns)
 
-        # Parquet parts can be written by different application versions.
-        # Unifying fragment schemas lets old parts coexist with newly added
-        # optional columns (for example research_score) without losing them.
-        schemas = [pq.read_schema(path) for path in files]
-        unified_schema = pa.unify_schemas(schemas)
-        dataset = ds.dataset(
-            [str(path) for path in files],
-            format="parquet",
-            schema=unified_schema,
-        )
         filter_expression = None
         if channel_id is not None and "channel_id" in dataset.schema.names:
             filter_expression = ds.field("channel_id") == channel_id
@@ -236,13 +238,66 @@ class ParquetStore:
                 expr = ds.field(time_column) <= pa.scalar(end_at)
                 filter_expression = expr if filter_expression is None else filter_expression & expr
 
-        available = [c for c in columns if c in dataset.schema.names]
+        available = [column for column in columns if column in dataset.schema.names]
         table = dataset.to_table(columns=available, filter=filter_expression)
         frame = table.to_pandas()
         for column in columns:
             if column not in frame.columns:
                 frame[column] = None
         return frame[columns]
+
+    @classmethod
+    def _latest_rows_dataset(
+        cls,
+        directory: Path,
+        columns: list[str],
+        time_column: str,
+    ) -> pd.DataFrame:
+        """Return one latest row per channel without materializing all history."""
+
+        dataset = cls._open_dataset(directory)
+        if dataset is None:
+            return pd.DataFrame(columns=columns)
+        if "channel_id" not in dataset.schema.names or time_column not in dataset.schema.names:
+            return pd.DataFrame(columns=columns)
+
+        available = [column for column in columns if column in dataset.schema.names]
+        if "channel_id" not in available:
+            available.append("channel_id")
+        if time_column not in available:
+            available.append(time_column)
+
+        latest: dict[str, tuple[pd.Timestamp, dict[str, Any]]] = {}
+        scanner = dataset.scanner(columns=available, batch_size=50_000)
+
+        for batch in scanner.to_batches():
+            frame = batch.to_pandas()
+            if frame.empty:
+                continue
+            frame[time_column] = pd.to_datetime(frame[time_column], errors="coerce")
+            frame = frame[frame["channel_id"].notna() & frame[time_column].notna()]
+            if frame.empty:
+                continue
+            frame["channel_id"] = frame["channel_id"].astype(str)
+            batch_latest = (
+                frame.sort_values(time_column, kind="stable")
+                .drop_duplicates("channel_id", keep="last")
+            )
+            for row in batch_latest.to_dict("records"):
+                channel_id = str(row["channel_id"])
+                stamp = pd.Timestamp(row[time_column])
+                current = latest.get(channel_id)
+                if current is None or stamp >= current[0]:
+                    latest[channel_id] = (stamp, row)
+
+        if not latest:
+            return pd.DataFrame(columns=columns)
+
+        result = pd.DataFrame([item[1] for item in latest.values()])
+        for column in columns:
+            if column not in result.columns:
+                result[column] = None
+        return result[columns]
 
     def sensors(self) -> pd.DataFrame:
         return self._read_snapshot(SENSORS_FILE, SENSOR_COLUMNS)
@@ -252,6 +307,39 @@ class ParquetStore:
 
     def forecasts(self, channel_id: str | None = None) -> pd.DataFrame:
         return self._read_dataset(FORECASTS_DIR, FORECAST_COLUMNS, channel_id=channel_id)
+
+    def episodes(self, channel_id: str | None = None) -> pd.DataFrame:
+        return self._read_dataset(EPISODES_DIR, EPISODE_COLUMNS, channel_id=channel_id)
+
+    def latest_events(self) -> pd.DataFrame:
+        with self._lock:
+            if self._latest_events_cache is None:
+                self._latest_events_cache = self._latest_rows_dataset(
+                    EVENTS_DIR,
+                    EVENT_COLUMNS,
+                    "timestamp",
+                )
+            return self._latest_events_cache.copy()
+
+    def latest_forecasts(self) -> pd.DataFrame:
+        with self._lock:
+            if self._latest_forecasts_cache is None:
+                self._latest_forecasts_cache = self._latest_rows_dataset(
+                    FORECASTS_DIR,
+                    FORECAST_COLUMNS,
+                    "prediction_time",
+                )
+            return self._latest_forecasts_cache.copy()
+
+    def latest_episodes(self) -> pd.DataFrame:
+        with self._lock:
+            if self._latest_episodes_cache is None:
+                self._latest_episodes_cache = self._latest_rows_dataset(
+                    EPISODES_DIR,
+                    EPISODE_COLUMNS,
+                    "confirmed_at",
+                )
+            return self._latest_episodes_cache.copy()
 
     def events_for_channels(
         self,
@@ -273,18 +361,41 @@ class ParquetStore:
         )
 
     def latest_event_times(self, channel_ids: Iterable[str]) -> dict[str, datetime]:
-        frame = self.events_for_channels(channel_ids)
-        if frame.empty:
-            return {}
-        frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce")
-        frame = frame[frame["timestamp"].notna() & frame["channel_id"].notna()]
-        if frame.empty:
-            return {}
-        latest = frame.groupby(frame["channel_id"].astype(str), sort=False)["timestamp"].max()
-        return {str(channel): stamp.to_pydatetime().replace(tzinfo=None) for channel, stamp in latest.items()}
+        """Return max event time per requested channel using only two columns."""
 
-    def episodes(self, channel_id: str | None = None) -> pd.DataFrame:
-        return self._read_dataset(EPISODES_DIR, EPISODE_COLUMNS, channel_id=channel_id)
+        ids = sorted({str(value) for value in channel_ids if str(value).strip()})
+        if not ids:
+            return {}
+
+        dataset = self._open_dataset(EVENTS_DIR)
+        if dataset is None:
+            return {}
+        if "channel_id" not in dataset.schema.names or "timestamp" not in dataset.schema.names:
+            return {}
+
+        filter_expression = ds.field("channel_id").isin(ids)
+        scanner = dataset.scanner(
+            columns=["channel_id", "timestamp"],
+            filter=filter_expression,
+            batch_size=100_000,
+        )
+
+        latest: dict[str, datetime] = {}
+        for batch in scanner.to_batches():
+            frame = batch.to_pandas()
+            if frame.empty:
+                continue
+            frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce")
+            frame = frame[frame["channel_id"].notna() & frame["timestamp"].notna()]
+            if frame.empty:
+                continue
+            grouped = frame.groupby(frame["channel_id"].astype(str), sort=False)["timestamp"].max()
+            for channel_id, stamp in grouped.items():
+                value = pd.Timestamp(stamp).to_pydatetime().replace(tzinfo=None)
+                current = latest.get(str(channel_id))
+                if current is None or value > current:
+                    latest[str(channel_id)] = value
+        return latest
 
     def imports(self) -> pd.DataFrame:
         return self._read_snapshot(IMPORTS_FILE, IMPORT_COLUMNS)
@@ -299,7 +410,7 @@ class ParquetStore:
                 "type": "sensor_type",
                 "objectName": "object_name",
             }
-            incoming = incoming.rename(columns={k: v for k, v in rename.items() if k in incoming.columns})
+            incoming = incoming.rename(columns={key: value for key, value in rename.items() if key in incoming.columns})
             if "channel_id" not in incoming.columns:
                 raise ValueError("sensors require channel_id")
             if "sensor_type" not in incoming.columns:
@@ -357,7 +468,6 @@ class ParquetStore:
         with self._lock:
             df = frame.copy()
 
-            # Older NormalizedEvent / earlier backend names -> current M1 names.
             aliases = {
                 "raw_value": "value_raw",
                 "numeric_value": "value_numeric",
@@ -365,11 +475,8 @@ class ParquetStore:
                 "type": "sensor_type",
                 "objectName": "object_name",
             }
-            df = df.rename(columns={k: v for k, v in aliases.items() if k in df.columns})
+            df = df.rename(columns={key: value for key, value in aliases.items() if key in df.columns})
 
-            # Some prepared datasets use value_state as the textual state and do
-            # not carry value_raw separately. Keep a lossless-enough fallback for
-            # the operational store; the canonical M1 output already has value_raw.
             if "value_raw" not in df.columns and "value_state" in df.columns:
                 df["value_raw"] = df["value_state"]
             if "value_state" not in df.columns and "value_raw" in df.columns:
@@ -398,6 +505,7 @@ class ParquetStore:
             normalized = self._normalize(df, EVENT_COLUMNS)
             normalized = normalized[normalized["channel_id"].notna() & normalized["timestamp"].notna()]
             count = self._append_part(EVENTS_DIR, normalized, EVENT_COLUMNS)
+            self._latest_events_cache = None
             self._refresh_sensors_from(df, "timestamp")
             return count
 
@@ -412,10 +520,15 @@ class ParquetStore:
                 raise ValueError(f"forecasts missing columns: {', '.join(sorted(missing))}")
             if "threshold" not in df.columns:
                 df["threshold"] = R6_THRESHOLD
+            else:
+                df["threshold"] = df["threshold"].fillna(R6_THRESHOLD)
             normalized = self._normalize(df, FORECAST_COLUMNS)
             normalized = normalized[normalized["channel_id"].notna() & normalized["prediction_time"].notna()]
             count = self._append_part(FORECASTS_DIR, normalized, FORECAST_COLUMNS)
-            self._refresh_sensors_from(df, "prediction_time")
+            self._latest_forecasts_cache = None
+            # Forecast rows are derived data and do not carry the complete
+            # sensor/object metadata. Do not let them overwrite the reference
+            # snapshot created from dictionaries/events.
             return count
 
     def append_episodes(self, frame: pd.DataFrame) -> int:
@@ -440,7 +553,8 @@ class ParquetStore:
             normalized = self._normalize(df, EPISODE_COLUMNS)
             normalized = normalized[normalized["channel_id"].notna() & normalized["episode_id"].notna()]
             count = self._append_part(EPISODES_DIR, normalized, EPISODE_COLUMNS)
-            self._refresh_sensors_from(df, "confirmed_at")
+            self._latest_episodes_cache = None
+            # Episode rows are also derived and may have only partial metadata.
             return count
 
     def add_import_record(self, record: dict[str, Any]) -> None:
@@ -462,14 +576,6 @@ class ParquetStore:
                 return
             for key, value in updates.items():
                 if key in current.columns:
-                    if key in _DATETIME_COLUMNS:
-                        # Parquet may return datetime64[ms], while Python's
-                        # datetime carries microseconds. Align the column
-                        # before assignment instead of failing or truncating.
-                        current[key] = pd.to_datetime(current[key], errors="coerce").dt.as_unit(
-                            "us"
-                        )
-                        value = pd.Timestamp(value).as_unit("us") if value is not None else pd.NaT
                     current.loc[mask, key] = value
             self._atomic_write(self._normalize(current, IMPORT_COLUMNS), IMPORTS_FILE)
 

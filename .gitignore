@@ -77,11 +77,7 @@ venv/
 /output/
 /tmp/
 /analysis/results/
-/backend/data/runs/
-/backend/data/reference/*.csv
 *.cbm
-!backend/data/model/current/model.cbm
-!ml/experimental_round7/weights/*.cbm
 *.pkl
 *.parquet
 *.npy
@@ -109,4 +105,3 @@ Thumbs.db
 
 Город 8. ДЖКХ.pdf
 saw dataset.ipynb
-/service-model-journal-failure-*/

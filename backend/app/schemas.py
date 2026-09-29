@@ -14,7 +14,7 @@ PredictionStatus = Literal[
     "not_available",
 ]
 
-SensorGroup = Literal["failed", "warning", "anomaly"]
+SensorGroup = Literal["healthy", "warning", "unavailable", "failed", "anomaly"]
 
 
 class HealthResponse(BaseModel):
@@ -23,10 +23,13 @@ class HealthResponse(BaseModel):
 
 class DashboardSummary(BaseModel):
     totalSensors: int
-    registeredFaults: int
+    withoutWarnings: int
     warnings: int
-    anomalyCandidates: int
     predictionUnavailable: int
+
+    # Legacy/internal counters are kept so older clients do not break.
+    registeredFaults: int = 0
+    anomalyCandidates: int = 0
 
 
 class SensorListItem(BaseModel):

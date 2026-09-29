@@ -173,14 +173,12 @@ def _warning_active(forecast: dict[str, Any] | None) -> bool | None:
     if shadow is True:
         return True
 
-    # A stored Round 7 gate pass is a record-only warning. It is visible in the
-    # UI, but it never triggers an external or automatic action.
+    # ``run_precomputed`` cannot reconstruct persisted shadow/cooldown state,
+    # so it records a preview crossing explicitly. In that one case the UI's
+    # "Предупреждения" bucket represents the crossed frozen R6 threshold.
     reason = _text(forecast.get("warning_reason"))
     crossed = _clean(forecast.get("threshold_crossed"))
-    if reason in {
-        "threshold_crossed_preview_only",
-        "round7_gates_passed_record_only",
-    } and crossed is True:
+    if reason == "threshold_crossed_preview_only" and crossed is True:
         return True
 
     return False
@@ -227,17 +225,14 @@ def _frontend_prediction_status(forecast: dict[str, Any] | None) -> str:
 def _compat_risk_index(forecast: dict[str, Any] | None) -> float | None:
     """Old frontend expects 0..1 riskScore.
 
-    Scores are not probabilities. For backward compatibility we expose a
-    clipped index; Round 7 uses one as its display denominator because it has
-    no single operational threshold.
+    The current R6 score is NOT a probability. For backward compatibility we
+    expose score/threshold clipped to 0..1 as a threshold index. New UI should
+    display ruleScore + threshold instead.
     """
     if not forecast:
         return None
     score = _clean(forecast.get("rule_score"))
-    threshold = _clean(forecast.get("threshold"))
-    if threshold is None and _text(forecast.get("policy_version")).startswith("round7-"):
-        threshold = 1.0
-    threshold = threshold or R6_THRESHOLD
+    threshold = _clean(forecast.get("threshold")) or R6_THRESHOLD
     if score is None or not threshold:
         return None
     try:
@@ -267,14 +262,14 @@ def _risk_factors(store: ParquetStore, forecast: dict[str, Any] | None, episode:
         if unavailable:
             factors.append(f"Прогноз недоступен: {unavailable}")
 
-        # The Round 7 bundle is a research model. Its score is kept separate
-        # from operational state and is never presented as a failure probability.
+        # The trained CatBoost bundle is a research model. Its score is kept
+        # separate from R6 and is never presented as a failure probability.
         research_score = _clean(forecast.get("research_score"))
         if research_score is not None:
             try:
                 rendered = f"{float(research_score):.3f}".replace(".", ",")
                 factors.append(
-                    f"Исследовательская оценка Round 7: {rendered} (не вероятность)"
+                    f"Исследовательская ML-оценка CatBoost: {rendered} (не вероятность)"
                 )
             except (TypeError, ValueError):
                 pass
@@ -288,15 +283,42 @@ def _risk_factors(store: ParquetStore, forecast: dict[str, Any] | None, episode:
     return list(dict.fromkeys(factors))[:10]
 
 
-def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
-    sensors = store.sensors()
-    events = store.events()
-    forecasts = store.forecasts()
-    episodes = store.episodes()
+def _latest_event_state(event: dict[str, Any] | None) -> str | None:
+    """Render the latest observed journal value without replaying full history."""
 
-    latest_events = _latest(events, "timestamp")
-    latest_forecasts = _latest(forecasts, "prediction_time")
-    latest_episodes = _latest(episodes, "confirmed_at")
+    if not event:
+        return None
+    state = _clean(event.get("value_state"))
+    if state is not None:
+        return str(state)
+
+    raw = _clean(event.get("value_raw"))
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        float(text.replace(",", "."))
+    except (TypeError, ValueError):
+        return text
+    return "Наблюдается"
+
+
+def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
+    """Build the dashboard view from compact latest-row snapshots.
+
+    The previous integration loaded the complete events table on every dashboard
+    and sensor-list request. That works for demo files but becomes very expensive
+    for a real monthly archive. The store now scans/caches only one latest event,
+    forecast and episode per channel for overview requests. Full history is still
+    available through the per-sensor history endpoint.
+    """
+
+    sensors = store.sensors()
+    latest_events = store.latest_events()
+    latest_forecasts = store.latest_forecasts()
+    latest_episodes = store.latest_episodes()
 
     ids: set[str] = set()
     for frame in (sensors, latest_events, latest_forecasts, latest_episodes):
@@ -304,26 +326,18 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
             ids.update(str(value) for value in frame["channel_id"].dropna().astype(str))
 
     sensor_map = {str(row["channel_id"]): row.to_dict() for _, row in sensors.iterrows()}
-    event_map = {str(row["channel_id"]): row.to_dict() for _, row in latest_events.iterrows()}
-    forecast_map = {str(row["channel_id"]): row.to_dict() for _, row in latest_forecasts.iterrows()}
-    episode_map = {str(row["channel_id"]): row.to_dict() for _, row in latest_episodes.iterrows()}
-
-    preferred_types: dict[str, str] = {}
-    for channel_id in ids:
-        sensor = sensor_map.get(channel_id, {})
-        event = event_map.get(channel_id)
-        forecast = forecast_map.get(channel_id)
-        episode = episode_map.get(channel_id)
-        sensor_type = (
-            _text(sensor.get("sensor_type"))
-            or _text(forecast.get("sensor_type") if forecast else None)
-            or _text(event.get("sensor_type") if event else None)
-            or _text(episode.get("sensor_type") if episode else None)
-            or "Неизвестный тип"
-        )
-        preferred_types[channel_id] = sensor_type
-
-    operational_states = _operational_state_map(events, preferred_types)
+    event_map = {
+        str(row["channel_id"]): row.to_dict()
+        for _, row in latest_events.iterrows()
+    }
+    forecast_map = {
+        str(row["channel_id"]): row.to_dict()
+        for _, row in latest_forecasts.iterrows()
+    }
+    episode_map = {
+        str(row["channel_id"]): row.to_dict()
+        for _, row in latest_episodes.iterrows()
+    }
 
     result: list[dict[str, Any]] = []
     for channel_id in sorted(ids):
@@ -331,28 +345,41 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
         event = event_map.get(channel_id)
         forecast = forecast_map.get(channel_id)
         episode = episode_map.get(channel_id)
-        sensor_type = preferred_types[channel_id]
 
-        operational_state = operational_states.get(channel_id)
+        sensor_type = (
+            _text(sensor.get("sensor_type"))
+            or _text(forecast.get("sensor_type") if forecast else None)
+            or _text(event.get("sensor_type") if event else None)
+            or _text(episode.get("sensor_type") if episode else None)
+            or "Неизвестный тип"
+        )
 
         object_name = _clean(sensor.get("object_name"))
+        if object_name is None and event:
+            object_name = _clean(event.get("object_name"))
+
         name = (
             _text(sensor.get("name"))
             or _text(sensor.get("sensor_name"))
+            or _text(event.get("sensor_name") if event else None)
             or f"{sensor_type} · {channel_id}"
         )
 
         threshold = _clean(forecast.get("threshold") if forecast else None)
-        policy = _text(forecast.get("policy_version")) if forecast else ""
-        threshold = float(threshold) if threshold is not None else (
-            None if policy.startswith("round7-") else R6_THRESHOLD
-        )
+        threshold = float(threshold) if threshold is not None else (R6_THRESHOLD if forecast else None)
 
         rule_score = _clean(forecast.get("rule_score") if forecast else None)
         rule_score = float(rule_score) if rule_score is not None else None
 
         threshold_crossed = _clean(forecast.get("threshold_crossed") if forecast else None)
+        prediction_status = _frontend_prediction_status(forecast)
         warning = _warning_active(forecast)
+
+        # A warning is meaningful only for a scored prediction. This keeps the
+        # three user-facing buckets mutually exclusive:
+        # warning / no warning / no forecast.
+        if prediction_status != "scored":
+            warning = False
 
         research_score = _clean(forecast.get("research_score") if forecast else None)
         try:
@@ -366,27 +393,20 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
             else (event.get("timestamp") if event else None)
         )
         anomaly_candidate = _active_anomaly_candidate(episode, reference_time)
-        prediction_status = _frontend_prediction_status(forecast)
 
-        # The headline on the card is an operational state when event history is
-        # available. For forecast-only test data, fall back to an honest
-        # forecast/anomaly status instead of the unhelpful ``Нет данных``.
-        if operational_state is not None:
-            current_state = operational_state
-        elif anomaly_candidate:
-            current_state = "Аномалия"
-        elif warning is True:
-            current_state = "Под риском"
+        observed_state = _latest_event_state(event)
+        if observed_state is not None:
+            current_state = observed_state
+        elif event is None:
+            current_state = "История не загружена"
         elif prediction_status != "scored":
             current_state = "Без прогноза"
+        elif warning:
+            current_state = "Под риском"
         else:
             current_state = "Прогноз рассчитан"
 
         faulty = _faulty_state(current_state)
-        if faulty:
-            # A registered current fault is the primary operational state. Do
-            # not also count the same sensor as a predictive warning.
-            warning = False
 
         result.append(
             {
@@ -396,22 +416,30 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
                 "objectName": str(object_name) if object_name is not None else None,
                 "currentState": current_state,
                 "riskScore": _compat_risk_index(forecast),
-                "warning": warning,
+                "warning": bool(warning),
                 "predictionStatus": prediction_status,
                 "anomalyCandidate": anomaly_candidate,
                 "ruleScore": rule_score,
                 "threshold": threshold,
-                "thresholdCrossed": bool(threshold_crossed) if threshold_crossed is not None else None,
-                "mlPredictionStatus": _text(forecast.get("prediction_status")) if forecast else None,
+                "thresholdCrossed": (
+                    bool(threshold_crossed) if threshold_crossed is not None else None
+                ),
+                "mlPredictionStatus": (
+                    _text(forecast.get("prediction_status")) if forecast else None
+                ),
                 "researchScore": research_score,
                 "researchPredictionStatus": (
-                    _text(forecast.get("research_prediction_status")) or None
+                    (_text(forecast.get("research_prediction_status")) or None)
                     if forecast
                     else None
                 ),
                 "lastEventAt": _iso(event.get("timestamp")) if event else None,
                 "riskFactors": _risk_factors(store, forecast, episode),
-                "objectId": _text(sensor.get("object_id")) or _text(event.get("object_id") if event else None) or None,
+                "objectId": (
+                    _text(sensor.get("object_id"))
+                    or _text(event.get("object_id") if event else None)
+                    or None
+                ),
                 "sensorType": sensor_type,
                 "_faulty": faulty,
                 "_forecast": forecast,
@@ -423,31 +451,61 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
 
 def dashboard_summary(store: ParquetStore) -> dict[str, int]:
     items = build_sensor_view(store)
+
+    warnings = sum(
+        1
+        for item in items
+        if item["predictionStatus"] == "scored" and item["warning"] is True
+    )
+    without_warnings = sum(
+        1
+        for item in items
+        if item["predictionStatus"] == "scored" and item["warning"] is not True
+    )
+    unavailable = sum(
+        1 for item in items if item["predictionStatus"] != "scored"
+    )
+
     return {
         "totalSensors": len(items),
+        "withoutWarnings": without_warnings,
+        "warnings": warnings,
+        "predictionUnavailable": unavailable,
+        # Kept for backward compatibility with older API clients. It is no
+        # longer a user-facing dashboard bucket.
         "registeredFaults": sum(1 for item in items if item["_faulty"]),
-        "warnings": sum(1 for item in items if item["warning"] is True),
         "anomalyCandidates": sum(1 for item in items if item["anomalyCandidate"]),
-        "predictionUnavailable": sum(
-            1 for item in items
-            if not item["_faulty"] and item["predictionStatus"] != "scored"
-        ),
     }
 
 
 def sensor_list(store: ParquetStore, group: str | None = None) -> list[dict[str, Any]]:
     items = build_sensor_view(store)
-    if group == "failed":
-        items = [item for item in items if item["_faulty"]]
+
+    if group == "healthy":
+        items = [
+            item
+            for item in items
+            if item["predictionStatus"] == "scored" and item["warning"] is not True
+        ]
     elif group == "warning":
-        items = [item for item in items if not item["_faulty"] and item["warning"] is True]
+        items = [
+            item
+            for item in items
+            if item["predictionStatus"] == "scored" and item["warning"] is True
+        ]
+    elif group == "unavailable":
+        items = [item for item in items if item["predictionStatus"] != "scored"]
+    elif group == "failed":
+        # Legacy API compatibility only. The current frontend does not expose
+        # this group as a separate class.
+        items = [item for item in items if item["_faulty"]]
     elif group == "anomaly":
         items = [item for item in items if item["anomalyCandidate"]]
 
     def sort_key(item: dict[str, Any]) -> tuple[int, int, float, str]:
         return (
-            1 if item["_faulty"] else 0,
-            1 if item["warning"] else 0,
+            1 if item["warning"] is True else 0,
+            1 if item["predictionStatus"] == "scored" else 0,
             float(item["ruleScore"] or -1),
             item["id"],
         )
@@ -462,7 +520,6 @@ def sensor_list(store: ParquetStore, group: str | None = None) -> list[dict[str,
         item.pop("objectId", None)
         item.pop("sensorType", None)
     return items
-
 
 def search_sensors(store: ParquetStore, query: str) -> list[dict[str, Any]]:
     q = query.strip().casefold()

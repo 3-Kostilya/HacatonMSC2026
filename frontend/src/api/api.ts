@@ -1,6 +1,9 @@
 import type {
   DashboardSummary,
   HealthResponse,
+  RawCapabilities,
+  RawImportStart,
+  RawImportStatus,
   SensorAssessment,
   SensorDetails,
   SensorEvent,
@@ -8,196 +11,93 @@ import type {
   SensorListItem,
 } from "../types/api";
 
+const API_URL = (import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000").replace(
+  /\/+$/,
+  "",
+);
 
-const API_URL =
-  (
-    import.meta.env.VITE_API_URL ??
-    "http://127.0.0.1:8000"
-  ).replace(/\/+$/, "");
-
-
-async function request<T>(
-  path: string
-): Promise<T> {
-
-  let response: Response;
-
+async function readError(response: Response) {
+  let message = `Ошибка API: ${response.status}`;
 
   try {
-
-    response =
-      await fetch(
-        `${API_URL}${path}`
-      );
-
-  } catch {
-
-    throw new Error(
-      "Не удалось подключиться к backend"
-    );
-  }
-
-
-  if (!response.ok) {
-
-    let message =
-      `Ошибка API: ${response.status}`;
-
+    const text = await response.text();
+    if (!text) return message;
 
     try {
-
-      const data =
-        await response.json();
-
-
-      if (
-        typeof data.detail === "string"
-      ) {
-        message =
-          data.detail;
-      }
-
+      const data = JSON.parse(text) as { detail?: unknown };
+      if (typeof data.detail === "string") return data.detail;
     } catch {
-      // Ответ не является JSON.
+      return text.slice(0, 500);
     }
-
-
-    throw new Error(
-      message
-    );
+  } catch {
+    // Оставляем стандартное сообщение.
   }
 
-
-  return response.json();
+  return message;
 }
 
+async function request<T>(path: string): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}${path}`);
+  } catch {
+    throw new Error("Не удалось подключиться к backend");
+  }
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return response.json() as Promise<T>;
+}
 
 export function getHealth() {
-
-  return request<HealthResponse>(
-    "/api/health"
-  );
+  return request<HealthResponse>("/api/health");
 }
-
 
 export function getDashboardSummary() {
-
-  return request<DashboardSummary>(
-    "/api/dashboard/summary"
-  );
+  return request<DashboardSummary>("/api/dashboard/summary");
 }
 
+export function getSensors(group?: SensorGroup) {
+  const params = new URLSearchParams();
+  if (group) params.set("group", group);
 
-export function getSensors(
-  group?: SensorGroup,
-  limit = 100
-) {
-
-  const params =
-    new URLSearchParams();
-
-  params.set(
-    "limit",
-    String(limit)
-  );
-
-
-  if (group) {
-
-    params.set(
-      "group",
-      group
-    );
-  }
-
-
-  return request<SensorListItem[]>(
-    `/api/sensors?${params.toString()}`
-  );
+  const query = params.toString();
+  return request<SensorListItem[]>(`/api/sensors${query ? `?${query}` : ""}`);
 }
 
-
-export function searchSensors(
-  query: string,
-  limit = 50
-) {
-
-  const params =
-    new URLSearchParams();
-
-  params.set(
-    "q",
-    query
-  );
-
-  params.set(
-    "limit",
-    String(limit)
-  );
-
-
-  return request<SensorListItem[]>(
-    `/api/sensors/search?${params.toString()}`
-  );
+export function searchSensors(query: string) {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  return request<SensorListItem[]>(`/api/sensors/search?${params.toString()}`);
 }
 
-
-export function getSensorDetails(
-  sensorId: string
-) {
-
-  const id =
-    encodeURIComponent(
-      sensorId
-    );
-
-
-  return request<SensorDetails>(
-    `/api/sensors/${id}`
-  );
+export function getSensorDetails(sensorId: string) {
+  return request<SensorDetails>(`/api/sensors/${encodeURIComponent(sensorId)}`);
 }
 
-
-export function getSensorHistory(
-  sensorId: string
-) {
-
-  const id =
-    encodeURIComponent(
-      sensorId
-    );
-
-
+export function getSensorHistory(sensorId: string) {
   return request<SensorEvent[]>(
-    `/api/sensors/${id}/history`
+    `/api/sensors/${encodeURIComponent(sensorId)}/history`,
   );
 }
 
-
-export function getSensorAssessment(
-  sensorId: string
-) {
-
-  const id =
-    encodeURIComponent(
-      sensorId
-    );
-
-
+export function getSensorAssessment(sensorId: string) {
   return request<SensorAssessment>(
-    `/api/sensors/${id}/assessment`
+    `/api/sensors/${encodeURIComponent(sensorId)}/assessment`,
   );
 }
-export async function getRawCapabilities() {
-  return request<import("../types/api").RawCapabilities>(
-    "/api/raw/capabilities"
-  );
+
+export function getRawCapabilities() {
+  return request<RawCapabilities>("/api/raw/capabilities");
 }
 
 export async function uploadRawData(
   journal: File,
   channels?: File | null,
-  objects?: File | null
+  objects?: File | null,
 ) {
   const form = new FormData();
   form.append("journal", journal);
@@ -215,21 +115,14 @@ export async function uploadRawData(
   }
 
   if (!response.ok) {
-    let message = `Ошибка API: ${response.status}`;
-    try {
-      const data = await response.json();
-      if (typeof data.detail === "string") message = data.detail;
-    } catch {
-      // ignore non-JSON error
-    }
-    throw new Error(message);
+    throw new Error(await readError(response));
   }
 
-  return response.json() as Promise<import("../types/api").RawImportStart>;
+  return response.json() as Promise<RawImportStart>;
 }
 
 export function getRawImportStatus(batchId: string) {
-  return request<import("../types/api").RawImportStatus>(
-    `/api/raw/import/${encodeURIComponent(batchId)}`
+  return request<RawImportStatus>(
+    `/api/raw/import/${encodeURIComponent(batchId)}`,
   );
 }

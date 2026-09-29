@@ -3,13 +3,13 @@ from __future__ import annotations
 import math
 import sys
 from collections import defaultdict
-from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any
+from pathlib import Path
+from typing import Any, Iterable
 
 import pandas as pd
 
-from app.config import PROJECT_ROOT
+from app.config import PROJECT_ROOT, R6_THRESHOLD, RUNTIME_MODEL_DIR
 from app.storage import ParquetStore
 
 # Backend is started from backend/, while the frozen ML and Stage-1 packages live
@@ -18,17 +18,18 @@ from app.storage import ParquetStore
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ml.experimental_round7 import Round7ResearchModels
-from stage1.features.hourly import FeatureEvent, feature_at
-from stage1.features.qa_values import qa_window_counts
-from stage1.state_labeling.operational import registered_state_effect
-from stage1.state_labeling.rules import classify_message
-from stage1.value_quality import assess_value
+from ml.forecast.r6_rule import TERMS  # noqa: E402
+from ml.service_candidate.loader import ResearchRiskModel  # noqa: E402
+from stage1.features.hourly import FeatureEvent, feature_at  # noqa: E402
+from stage1.features.qa_values import qa_window_counts  # noqa: E402
+from stage1.state_labeling.operational import registered_state_effect  # noqa: E402
+from stage1.state_labeling.rules import classify_message  # noqa: E402
+from stage1.value_quality import assess_value  # noqa: E402
 
 WINDOW_HOURS = (1, 6, 24, 168)
 HISTORY_LOOKBACK = timedelta(days=36)
-RESEARCH_SCORE_KIND = "round7_linear_score"
-LIVE_POLICY_VERSION = "round7-raw-upload-v1"
+RESEARCH_SCORE_KIND = "uncalibrated_research"
+LIVE_POLICY_VERSION = "live-r6-integration-v1"
 
 
 def _clean(value: Any) -> Any:
@@ -181,22 +182,7 @@ def _registered_state(events: list[FeatureEvent], prediction_time: datetime) -> 
     return state
 
 
-def _last_explicit_normal(events: list[FeatureEvent], prediction_time: datetime) -> datetime | None:
-    normal: datetime | None = None
-    for event in sorted(events, key=lambda item: item.timestamp):
-        if event.timestamp > prediction_time or event.value_state is None:
-            continue
-        if registered_state_effect(event.sensor_type, event.value_state, event.alarm) == "normal":
-            normal = event.timestamp
-    return normal
-
-
-def _admission_status(
-    events: list[FeatureEvent],
-    prediction_time: datetime,
-    current_state: str | None,
-    last_normal: datetime | None,
-) -> tuple[str, str | None]:
+def _admission_status(events: list[FeatureEvent], prediction_time: datetime, current_state: str | None) -> tuple[str, str | None]:
     if current_state == "Неисправен":
         return "already_faulty", "already_registered_fault"
     usable = [event for event in events if event.timestamp <= prediction_time]
@@ -206,16 +192,14 @@ def _admission_status(
     if len(sensor_types) != 1:
         return "not_available", "unknown_or_conflicting_sensor_type"
     unique_times = sorted({event.timestamp for event in usable})
-    if not unique_times:
-        return "not_available", "no_history"
-    if last_normal is None:
-        return "not_available", "no_explicit_normal"
+    if len(unique_times) < 2 or prediction_time - unique_times[0] < timedelta(days=7):
+        return "not_available", "insufficient_history"
     return "scored", None
 
 
 def _base_row(
     store: ParquetStore,
-    model: Round7ResearchModels,
+    model: ResearchRiskModel,
     channel_id: str,
     events: list[FeatureEvent],
     prediction_time: datetime,
@@ -226,7 +210,7 @@ def _base_row(
     qa = qa_window_counts(events, prediction_time)
     source: dict[str, Any] = {**a2, **semantic, **episode, **qa}
 
-    base_names = model.base_names
+    base_names = model.metadata["base_feature_names"]
     row: dict[str, Any] = {}
     for name in base_names:
         if name.startswith("missing__"):
@@ -246,103 +230,80 @@ def _base_row(
     return row, _registered_state(events, prediction_time)
 
 
-def _round7_in_cooldown(store: ParquetStore, channel_id: str, prediction_time: datetime) -> bool:
-    """Apply the frozen 24-hour warning suppression to newly uploaded hours."""
-
-    previous = store.forecasts(channel_id)
-    if previous.empty:
-        return False
-    previous["prediction_time"] = pd.to_datetime(previous["prediction_time"], errors="coerce")
-    previous = previous[
-        previous["prediction_time"].notna()
-        & previous["policy_version"].astype(str).str.startswith("round7-")
-        & previous["warning_reason"].astype(str).eq("round7_gates_passed_record_only")
-    ]
-    if previous.empty:
-        return False
-    last = previous["prediction_time"].max().to_pydatetime().replace(tzinfo=None)
-    return timedelta(0) <= prediction_time - last < timedelta(hours=24)
-
-
-def score_channels(
+def _score_channel_batch(
     store: ParquetStore,
-    channel_ids: Iterable[str],
+    model: ResearchRiskModel,
+    channel_ids: list[str],
+    latest: dict[str, datetime],
 ) -> int:
-    ids = sorted({str(value) for value in channel_ids if str(value).strip()})
-    if not ids:
-        return 0
+    """Score a bounded group of channels.
 
-    try:
-        model = Round7ResearchModels()
-    except (ValueError, KeyError, OSError):
-        return 0
+    The old integration loaded the full history for every affected channel in one
+    DataFrame. A monthly journal can contain millions of rows, so that approach
+    can exhaust RAM. Processing channels in bounded groups keeps the same feature
+    logic while limiting peak memory use.
+    """
 
-    # First find each channel's latest event, then read only the history needed
-    # for 168h windows + the frozen baseline lookback/embargo.
-    latest = store.latest_event_times(ids)
     if not latest:
         return 0
+
     min_time = min(latest.values()) - HISTORY_LOOKBACK
-    # A periodic upload closes the preceding whole hour.  The current hour is
-    # deliberately left open so a partial upload cannot become a prediction.
-    prediction_times = {
-        channel_id: stamp.replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
-        for channel_id, stamp in latest.items()
-    }
     max_time = max(latest.values())
-    history = store.events_for_channels(ids, start_at=min_time, end_at=max_time)
+    history = store.events_for_channels(
+        channel_ids,
+        start_at=min_time,
+        end_at=max_time,
+    )
     feature_events = _feature_events(store, history)
+
     by_channel: dict[str, list[FeatureEvent]] = defaultdict(list)
     for event in feature_events:
         by_channel[event.channel_id].append(event)
 
     records: list[dict[str, Any]] = []
-    for channel_id in ids:
-        prediction_time = prediction_times.get(channel_id)
+    for channel_id in channel_ids:
+        prediction_time = latest.get(channel_id)
         events = by_channel.get(channel_id, [])
         if prediction_time is None or not events:
             continue
 
         base, current_state = _base_row(store, model, channel_id, events, prediction_time)
-        last_normal = _last_explicit_normal(events, prediction_time)
         prediction_status, unavailable_reason = _admission_status(
-            events, prediction_time, current_state, last_normal
+            events, prediction_time, current_state
         )
-        score_linear = None
-        score_tree = None
-        score_specialist = None
-        passes_common = None
-        passes_standard = None
+
+        research_score = None
         research_status = "not_available"
         if prediction_status == "scored":
-            service = pd.DataFrame([
-                {
-                    "channel_id": channel_id,
-                    "prediction_time": prediction_time,
-                    "admission_status": "eligible",
-                    "last_explicit_normal_at": last_normal,
-                    **base,
-                }
-            ])
+            service = pd.DataFrame(
+                [
+                    {
+                        "channel_id": channel_id,
+                        "prediction_time": prediction_time,
+                        "admission_status": "eligible",
+                        **base,
+                    }
+                ]
+            )
             scored = model.score(service).iloc[0]
-            score_linear = _to_float(scored.get("score_linear"))
-            score_tree = _to_float(scored.get("score_tree"))
-            score_specialist = _to_float(scored.get("score_specialist"))
-            passes_common = _clean(scored.get("passes_common_gates"))
-            passes_standard = _clean(scored.get("passes_standard_gates"))
-            research_status = str(scored.get("prediction_status") or "not_available")
+            research_score = _to_float(scored.get("risk_score"))
+            research_status = str(
+                scored.get("prediction_status") or "not_available"
+            )
 
-        model_passed = bool(passes_standard) if prediction_status == "scored" else None
-        suppressed = bool(
-            model_passed and _round7_in_cooldown(store, channel_id, prediction_time)
-        )
-        crossed = False if suppressed else model_passed
+        score = 0.0
+        contributions: dict[str, float] = {}
+        for name, weight in TERMS.items():
+            value = _to_float(base.get(name))
+            value = 0.0 if value is None else max(value, 0.0)
+            contributions[name] = weight * value
+            score += contributions[name]
+
+        crossed = bool(score >= R6_THRESHOLD) if prediction_status == "scored" else None
         warning_reason = (
-            "suppressed_24h"
-            if suppressed
-            else "round7_gates_passed_record_only"
+            "threshold_crossed_preview_only"
             if crossed is True
-            else "round7_gates_not_passed"
+            else "below_frozen_threshold"
             if crossed is False
             else "no_prediction"
         )
@@ -355,46 +316,89 @@ def score_channels(
                 "channel_id": channel_id,
                 "prediction_time": prediction_time,
                 "sensor_type": sensor_type,
-                "admission_status": "eligible" if prediction_status == "scored" else "unknown",
+                "admission_status": (
+                    "eligible" if prediction_status == "scored" else "unknown"
+                ),
                 "admission_reason": unavailable_reason,
                 "prediction_status": prediction_status,
                 "unavailable_reason": unavailable_reason,
-                "rule_score": score_linear if prediction_status == "scored" else None,
-                "threshold": None,
+                "rule_score": score if prediction_status == "scored" else None,
+                "threshold": R6_THRESHOLD,
                 "threshold_crossed": crossed,
+                # This service does not execute automatic actions. The UI still
+                # treats an explicit threshold crossing as a warning through
+                # warning_reason/threshold_crossed.
                 "shadow_warning": False,
                 "warning_reason": warning_reason,
-                "score_contributions": {
-                    "linear": score_linear,
-                    "tree": score_tree,
-                    "specialist": score_specialist,
-                    "passes_common_gates": bool(passes_common)
-                    if passes_common is not None
-                    else None,
-                    "passes_standard_gates": bool(passes_standard)
-                    if passes_standard is not None
-                    else None,
-                }
-                if prediction_status == "scored"
-                else None,
+                "score_contributions": (
+                    contributions if prediction_status == "scored" else None
+                ),
                 "delivery_mode": "record_only",
                 "automatic_action_taken": False,
                 "history_through": prediction_time,
                 "admission_through": prediction_time,
-                "registered_fault_text_count_24h": base.get("registered_fault_text_count_24h"),
-                "registered_fault_text_count_168h": base.get("registered_fault_text_count_168h"),
-                "completed_episode_count_168h": base.get("completed_episode_count_168h"),
-                "technical_message_count_24h": base.get("technical_message_count_24h"),
-                "research_score": score_linear,
+                "registered_fault_text_count_24h": base.get(
+                    "registered_fault_text_count_24h"
+                ),
+                "registered_fault_text_count_168h": base.get(
+                    "registered_fault_text_count_168h"
+                ),
+                "completed_episode_count_168h": base.get(
+                    "completed_episode_count_168h"
+                ),
+                "technical_message_count_24h": base.get(
+                    "technical_message_count_24h"
+                ),
+                "research_score": research_score,
                 "research_prediction_status": research_status,
-                "research_model_version": str(model.manifest["schema_version"]),
+                "research_model_version": str(model.metadata["schema_version"]),
                 "research_score_kind": RESEARCH_SCORE_KIND,
-                "round7_score_linear": score_linear,
-                "round7_score_tree": score_tree,
-                "round7_score_specialist": score_specialist,
-                "round7_passes_common_gates": passes_common,
-                "round7_passes_standard_gates": passes_standard,
             }
         )
 
-    return store.append_forecasts(pd.DataFrame(records)) if records else 0
+    if not records:
+        return 0
+    return store.append_forecasts(pd.DataFrame(records))
+
+
+def score_channels(
+    store: ParquetStore,
+    channel_ids: Iterable[str],
+    *,
+    batch_size: int = 250,
+) -> int:
+    """Build live forecasts for affected channels with bounded memory use."""
+
+    ids = sorted({str(value) for value in channel_ids if str(value).strip()})
+    if not ids:
+        return 0
+
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+
+    if not (RUNTIME_MODEL_DIR / "model.cbm").is_file() or not (
+        RUNTIME_MODEL_DIR / "model_metadata.json"
+    ).is_file():
+        return 0
+
+    model = ResearchRiskModel(RUNTIME_MODEL_DIR)
+    latest_all = store.latest_event_times(ids)
+    if not latest_all:
+        return 0
+
+
+    total = 0
+    for offset in range(0, len(ids), batch_size):
+        batch_ids = ids[offset : offset + batch_size]
+        batch_latest = {
+            channel_id: latest_all[channel_id]
+            for channel_id in batch_ids
+            if channel_id in latest_all
+        }
+        total += _score_channel_batch(
+            store,
+            model,
+            batch_ids,
+            batch_latest,
+        )
+    return total

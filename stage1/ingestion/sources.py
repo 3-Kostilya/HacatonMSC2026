@@ -3,42 +3,14 @@
 from __future__ import annotations
 
 import csv
-import os
 from pathlib import Path
-import re
-import shutil
 import subprocess
 import tempfile
 from collections.abc import Iterator
 from typing import BinaryIO
 
+from analysis.audit_stage1_sources import find_seven_zip, parse_7z_listing
 from stage1.normalization import EVENT_FIELDS
-
-
-def find_seven_zip() -> str:
-    configured = os.environ.get("SEVEN_ZIP")
-    candidates = [configured] if configured else ["7zz", "7z", r"C:/Program Files/7-Zip/7z.exe"]
-    for candidate in candidates:
-        if candidate and (resolved := shutil.which(candidate)):
-            return resolved
-    raise FileNotFoundError("7-Zip not found; install 7z/7zz or set SEVEN_ZIP")
-
-
-def parse_7z_listing(text: str) -> list[dict[str, str]]:
-    """Return file-member records from a ``7z l -slt`` listing."""
-    tail = text.split("----------", 1)
-    if len(tail) != 2:
-        raise ValueError("Unexpected 7-Zip listing: member delimiter absent")
-    records = []
-    for block in re.split(r"\r?\n\r?\n", tail[1].strip()):
-        record = {}
-        for line in block.splitlines():
-            if " = " in line:
-                key, value = line.split(" = ", 1)
-                record[key] = value
-        if record.get("Path"):
-            records.append(record)
-    return records
 
 
 def _archive_members(text: str) -> list[str]:

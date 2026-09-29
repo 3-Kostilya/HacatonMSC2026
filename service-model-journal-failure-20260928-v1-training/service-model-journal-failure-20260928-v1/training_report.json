@@ -1,0 +1,15 @@
+{
+  "status": "trained_research_model_not_production_approved",
+  "model_identical_to_independently_scored_neighbor": false,
+  "sample_score_maximum_gap": 0.0,
+  "serialization_loader_parity": true,
+  "model_sha256": "4e277ddb95df40523c105d51fef3f21fc3151099072346622fcd4c2183febf44",
+  "model_bytes": 180724,
+  "train_rows": 1011240,
+  "train_positive_hours": 56299,
+  "train_positive_episodes": 5913,
+  "research_threshold_2024": null,
+  "opened_2025_not_used_for_selection": true,
+  "test_2026_not_read": true,
+  "elapsed_seconds": 295.632
+}

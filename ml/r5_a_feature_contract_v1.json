@@ -1,0 +1,30 @@
+{
+  "schema_version": "r5-a-anomaly-features-v1",
+  "purpose": "conditional_registered_journal_event_ablation",
+  "source_a3": "r3-a-feature-pack-full-v2",
+  "candidate_population": "r3-b-conditional-discrete-v1",
+  "target_or_split_modified": false,
+  "feature_groups": {
+    "stat": [
+      "r5_event_burst_z_1h",
+      "r5_alarm_burst_z_1h",
+      "r5_state_transition_burst_z_6h",
+      "r5_event_change_z_6h"
+    ],
+    "isolation_forest": ["r5_if_anomaly_score"],
+    "clusters": ["r5_kmeans_distance", "r5_hdbscan_centroid_distance"],
+    "transitions": ["r5_kmeans_mode_changed", "r5_hdbscan_proxy_mode_changed"]
+  },
+  "diagnostic_columns_not_model_features": [
+    "channel_id",
+    "prediction_time",
+    "sensor_type",
+    "r5_model_fold",
+    "r5_kmeans_mode_id",
+    "r5_hdbscan_proxy_mode_id"
+  ],
+  "missing_value_policy": "Preserve null scores and transitions; compare ablations on the same eligible rows. Do not turn missing coverage into an apparent improvement.",
+  "model_fit_policy": "Per sensor type on bounded, channel-balanced, past-only train candidate samples. 2019 H1 is warm-up; 2019 H2 and later train years use earlier periods. Validation and test share a model frozen before 2025-01-01.",
+  "hdbscan_limitation": "Distance to fitted HDBSCAN cluster centroids is an out-of-sample proxy, not exact HDBSCAN membership.",
+  "transition_limitation": "A transition compares adjacent admitted candidate hours on the same channel within 24 hours under the same fitted model; it does not prove continuous operation."
+}

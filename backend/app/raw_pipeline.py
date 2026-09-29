@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
-import re
 import shutil
 import sys
 import traceback
@@ -17,11 +17,13 @@ import pyarrow.parquet as pq
 from app.config import (
     CHANNELS_REFERENCE_FILE,
     FAILED_DIR,
+    INCOMING_DIR,
     OBJECTS_REFERENCE_FILE,
     PROCESSED_DIR,
     PROJECT_ROOT,
     RAW_RUNS_DIR,
     REFERENCE_DIR,
+    RUNTIME_MODEL_DIR,
 )
 from app.live_inference import score_channels
 from app.storage import ParquetStore
@@ -29,9 +31,13 @@ from app.storage import ParquetStore
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ml.experimental_round7 import Round7ResearchModels
-from stage1.ingestion.dictionaries import load_dictionaries
-from stage1.ingestion.pipeline import run_ingestion
+from stage1.ingestion.dictionaries import (  # noqa: E402
+    CHANNEL_OBJECT_ID_COLUMN,
+    CHANNEL_REQUIRED_COLUMNS,
+    OBJECT_REQUIRED_COLUMNS,
+    load_dictionaries,
+)
+from stage1.ingestion.pipeline import run_ingestion  # noqa: E402
 
 RAW_ALLOWED_SUFFIXES = {".csv", ".7z"}
 REFERENCE_ALLOWED_SUFFIXES = {".csv"}
@@ -70,32 +76,66 @@ def _write_status(batch_id: str, **values: Any) -> None:
 
 
 def get_status(batch_id: str) -> dict[str, Any] | None:
-    if re.fullmatch(r"[0-9a-f]{32}", batch_id) is None:
-        return None
     path = _status_path(batch_id)
     if not path.is_file():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def bootstrap_runtime_assets() -> dict[str, bool]:
-    """Check the pinned Round 7 runtime bundle and supplied references.
+def _header(path: Path) -> list[str]:
+    with path.open("r", encoding="utf-8-sig", newline="") as stream:
+        reader = csv.reader(stream)
+        try:
+            return next(reader)
+        except StopIteration:
+            return []
 
-    Never discover arbitrary CSVs or model bundles: repository fixtures and
-    research artifacts must not silently become operational inputs.
+
+def _matches_reference(path: Path, required: tuple[str, ...]) -> bool:
+    try:
+        names = set(_header(path))
+    except Exception:
+        return False
+    return set(required).issubset(names)
+
+
+def bootstrap_runtime_assets() -> dict[str, bool]:
+    """Copy only runtime assets into backend/data; never move training splits.
+
+    The legacy service bundle may live at repository root. The backend runtime
+    needs only model.cbm + model_metadata.json, so train/tune/validation stay in
+    the ML artifact and are not mistaken for operational event history.
     """
 
-    model_ready = False
-    try:
-        Round7ResearchModels()
-        model_ready = True
-    except (ValueError, KeyError, OSError):
-        model_ready = False
+    RUNTIME_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    if not (RUNTIME_MODEL_DIR / "model.cbm").is_file():
+        candidates = list(PROJECT_ROOT.glob("service-model-journal-failure-*/service-model-journal-failure-*/model.cbm"))
+        candidates += list(PROJECT_ROOT.glob("service-model-journal-failure-*/model.cbm"))
+        for model_path in candidates:
+            metadata = model_path.with_name("model_metadata.json")
+            if metadata.is_file():
+                shutil.copy2(model_path, RUNTIME_MODEL_DIR / "model.cbm")
+                shutil.copy2(metadata, RUNTIME_MODEL_DIR / "model_metadata.json")
+                break
+
+    # If the user already keeps the official reference CSVs somewhere in the
+    # project, copy them once into backend/data/reference. Uploaded references
+    # later replace these copies only after successful validation.
+    REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+    if not CHANNELS_REFERENCE_FILE.is_file() or not OBJECTS_REFERENCE_FILE.is_file():
+        for path in PROJECT_ROOT.rglob("*.csv"):
+            if "backend/data" in path.as_posix().replace("\\", "/"):
+                continue
+            if not CHANNELS_REFERENCE_FILE.is_file() and _matches_reference(path, CHANNEL_REQUIRED_COLUMNS):
+                shutil.copy2(path, CHANNELS_REFERENCE_FILE)
+            if not OBJECTS_REFERENCE_FILE.is_file() and _matches_reference(path, OBJECT_REQUIRED_COLUMNS):
+                shutil.copy2(path, OBJECTS_REFERENCE_FILE)
+            if CHANNELS_REFERENCE_FILE.is_file() and OBJECTS_REFERENCE_FILE.is_file():
+                break
 
     return {
-        "modelReady": model_ready,
-        "referencesReady": CHANNELS_REFERENCE_FILE.is_file()
-        and OBJECTS_REFERENCE_FILE.is_file(),
+        "modelReady": (RUNTIME_MODEL_DIR / "model.cbm").is_file() and (RUNTIME_MODEL_DIR / "model_metadata.json").is_file(),
+        "referencesReady": CHANNELS_REFERENCE_FILE.is_file() and OBJECTS_REFERENCE_FILE.is_file(),
     }
 
 

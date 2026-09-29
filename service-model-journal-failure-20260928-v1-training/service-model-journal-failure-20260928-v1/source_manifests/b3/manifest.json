@@ -1,0 +1,484 @@
+{
+  "schema_version": "registered-state-r3-labels-v1",
+  "status": "complete_full_labels",
+  "purpose": "full_registered_event_targets",
+  "not_training_ready": true,
+  "reason_not_training_ready": "channel observation continuity and model admission are not established",
+  "created_utc": "2026-09-25T07:16:41.210053+00:00",
+  "source_a3_full_manifest_sha256": "e028c1043c5ae7ee8770c1ef3489dd3bcb77370f8021a41f8ed21715bce5f172",
+  "source_m1_manifest_sha256": "2fc2a1fd534e3c1bb33947c358c973a28698140732700f5778cc507dfb65bed0",
+  "source_b2_catalog_manifest_sha256": "acedc29c7b24a9364c5b197ce8501fa9c98a5ece8e6e53fb9f147e5f5a7a22b8",
+  "row_count": 120515304,
+  "chunk_count": 78,
+  "report_sha256": "0ba33b173396e9bca2db6c6d2dd0c1abd8ed1f081a9af05bca0511d047491ce1",
+  "chunks": [
+    {
+      "month": "2019-01",
+      "manifest_file": "year=2019/month=01/manifest.json",
+      "manifest_sha256": "24f7875c3b61f55c162f05701da9a39b1753c0dd9d68bcb371055a24502ae23e",
+      "rows": 1154843
+    },
+    {
+      "month": "2019-02",
+      "manifest_file": "year=2019/month=02/manifest.json",
+      "manifest_sha256": "605707017adbd8257ced6599ee0ee20cf8b0be598dd3fb9f9048d580ff5f0212",
+      "rows": 1470641
+    },
+    {
+      "month": "2019-03",
+      "manifest_file": "year=2019/month=03/manifest.json",
+      "manifest_sha256": "f6cdac67a93f0d14ade889ced872934153e83be3e7100144cf531cbc20107f87",
+      "rows": 1285661
+    },
+    {
+      "month": "2019-04",
+      "manifest_file": "year=2019/month=04/manifest.json",
+      "manifest_sha256": "49bc1cd33bb9599823b1280ff6bdf3206388fb74cd6ef88cfd0e28c01de213e6",
+      "rows": 1223537
+    },
+    {
+      "month": "2019-05",
+      "manifest_file": "year=2019/month=05/manifest.json",
+      "manifest_sha256": "a590d00e7a43f53e580434060b486a1fb3a4d872433733c49ee0b6a50417109f",
+      "rows": 806027
+    },
+    {
+      "month": "2019-06",
+      "manifest_file": "year=2019/month=06/manifest.json",
+      "manifest_sha256": "81935a6658dcf555e872f99866dac6afb21eb7548ddf228df0add3a5002d387f",
+      "rows": 958057
+    },
+    {
+      "month": "2019-07",
+      "manifest_file": "year=2019/month=07/manifest.json",
+      "manifest_sha256": "62e3a52faadf89ec32dd93f612e01d1e17ad757c0da1792013461ecc572fd017",
+      "rows": 899422
+    },
+    {
+      "month": "2019-08",
+      "manifest_file": "year=2019/month=08/manifest.json",
+      "manifest_sha256": "420f433710cff80e240261d9977ec780e2138991d578f8d9af6f25d9e5142bb2",
+      "rows": 1244151
+    },
+    {
+      "month": "2019-09",
+      "manifest_file": "year=2019/month=09/manifest.json",
+      "manifest_sha256": "ee44c325e90aca9417136b3501a620da12b9cb26c91d16ce62f837f7d846e3ca",
+      "rows": 1208283
+    },
+    {
+      "month": "2019-10",
+      "manifest_file": "year=2019/month=10/manifest.json",
+      "manifest_sha256": "94cc37e58434a2487f091e57156cb948fb5a689959a034957d2f416b02b3b16a",
+      "rows": 1475349
+    },
+    {
+      "month": "2019-11",
+      "manifest_file": "year=2019/month=11/manifest.json",
+      "manifest_sha256": "80b2734a349091d051b1c72ac1ef2223022d2e7fd1a2cdfa66840e4486777d70",
+      "rows": 1235083
+    },
+    {
+      "month": "2019-12",
+      "manifest_file": "year=2019/month=12/manifest.json",
+      "manifest_sha256": "f527868a1bcb51198aa76fd2ca00bb906e5edabd60ce7109575d654b39fe4b49",
+      "rows": 1270198
+    },
+    {
+      "month": "2020-01",
+      "manifest_file": "year=2020/month=01/manifest.json",
+      "manifest_sha256": "11484854dbb34be89de9af980ea2b8c12fc32f51bdfd45f7e38613c0362368ed",
+      "rows": 1414228
+    },
+    {
+      "month": "2020-02",
+      "manifest_file": "year=2020/month=02/manifest.json",
+      "manifest_sha256": "7619c2158ddfe4eecb5ee9e971152b99ed0acf3c3e42b035e8adad5ed26653ad",
+      "rows": 1731278
+    },
+    {
+      "month": "2020-03",
+      "manifest_file": "year=2020/month=03/manifest.json",
+      "manifest_sha256": "8b7157ef09a97e4e829a96ab56d234afc10d6a24f1068b3cb51e6bab925c2d98",
+      "rows": 1819377
+    },
+    {
+      "month": "2020-04",
+      "manifest_file": "year=2020/month=04/manifest.json",
+      "manifest_sha256": "1d5bcc5084900fff6fd3d7421c95fa1de76a418d8d0ff905d26f02adf4cb6c33",
+      "rows": 1959689
+    },
+    {
+      "month": "2020-05",
+      "manifest_file": "year=2020/month=05/manifest.json",
+      "manifest_sha256": "efd1182818ab74c658da6f0c7fabd6a07cd872883b92f999e64e415e7e2b4bfe",
+      "rows": 2068844
+    },
+    {
+      "month": "2020-06",
+      "manifest_file": "year=2020/month=06/manifest.json",
+      "manifest_sha256": "65216d468779c08cfbdac9e95391ba9aa9ee1d6ae53d3fa523827aca4a5286e9",
+      "rows": 2170947
+    },
+    {
+      "month": "2020-07",
+      "manifest_file": "year=2020/month=07/manifest.json",
+      "manifest_sha256": "75cd433920279db31ae3f8c76612a4053d0ad7c4987f86a75ef9c7016540ba86",
+      "rows": 1959196
+    },
+    {
+      "month": "2020-08",
+      "manifest_file": "year=2020/month=08/manifest.json",
+      "manifest_sha256": "3cff899f27ce5d468a91e396144b7c337a04e5b315b397744b06cca2903c6296",
+      "rows": 1997608
+    },
+    {
+      "month": "2020-09",
+      "manifest_file": "year=2020/month=09/manifest.json",
+      "manifest_sha256": "3093f1c0254ca590ea3b5958764358b879e7f465876d9229ac501a1f7eb46a24",
+      "rows": 2638426
+    },
+    {
+      "month": "2020-10",
+      "manifest_file": "year=2020/month=10/manifest.json",
+      "manifest_sha256": "4ec2d568dcb148134e5cafe90e087eb87aaf8f3503af53b268134d0f935e1323",
+      "rows": 2192825
+    },
+    {
+      "month": "2020-11",
+      "manifest_file": "year=2020/month=11/manifest.json",
+      "manifest_sha256": "8296e95f15f36992978a0973d653860c9a28e152d9001650089df50a1070aab1",
+      "rows": 1744487
+    },
+    {
+      "month": "2020-12",
+      "manifest_file": "year=2020/month=12/manifest.json",
+      "manifest_sha256": "d7a5afdb19ecb32ed12faff36c519e08bec74eb53ba1dcba00355e5c0f88e3e0",
+      "rows": 1519874
+    },
+    {
+      "month": "2022-01",
+      "manifest_file": "year=2022/month=01/manifest.json",
+      "manifest_sha256": "f65c3613caca9ab397b4e478202673e983930b6d16a1208f98d4b8eb448e2ad5",
+      "rows": 1001201
+    },
+    {
+      "month": "2022-02",
+      "manifest_file": "year=2022/month=02/manifest.json",
+      "manifest_sha256": "a27a7f4428297a4852fac0f6299880a6989d520e55b9218ecba0c35ded40ac7f",
+      "rows": 1634462
+    },
+    {
+      "month": "2022-03",
+      "manifest_file": "year=2022/month=03/manifest.json",
+      "manifest_sha256": "49095ec0df47dd34622079009e4a718d9208446043e027c74bfffc001eefdc47",
+      "rows": 1449066
+    },
+    {
+      "month": "2022-04",
+      "manifest_file": "year=2022/month=04/manifest.json",
+      "manifest_sha256": "584fddf9bd0577e085ec06eb8410249ab143d6ad2aa2ccc74916bd3b1f20b6ea",
+      "rows": 1113982
+    },
+    {
+      "month": "2022-05",
+      "manifest_file": "year=2022/month=05/manifest.json",
+      "manifest_sha256": "aec13cb89da9195673aa571fc0f901d92b0df94b68f42039ff8b0b67efeff56a",
+      "rows": 1420140
+    },
+    {
+      "month": "2022-06",
+      "manifest_file": "year=2022/month=06/manifest.json",
+      "manifest_sha256": "a0d3df689639998169abd091664098fc406077bd4ee9c7f089885fe00fba670d",
+      "rows": 1832264
+    },
+    {
+      "month": "2022-07",
+      "manifest_file": "year=2022/month=07/manifest.json",
+      "manifest_sha256": "29edf4480996bfc8b173fb31fa460e750605afa581408e3f73792f4c8a16c5d1",
+      "rows": 1923930
+    },
+    {
+      "month": "2022-08",
+      "manifest_file": "year=2022/month=08/manifest.json",
+      "manifest_sha256": "331b4ea6658742bbcd124873a0662cf1b4717e812fc694e3278172d285a90ac0",
+      "rows": 1319270
+    },
+    {
+      "month": "2022-09",
+      "manifest_file": "year=2022/month=09/manifest.json",
+      "manifest_sha256": "63d4dd6418d8100fcb62e5e199eaaa12840b4363249432387666ba1ba7f53089",
+      "rows": 1149538
+    },
+    {
+      "month": "2022-10",
+      "manifest_file": "year=2022/month=10/manifest.json",
+      "manifest_sha256": "ce4f592254f24db688c5fb1f3855c7692790d52ad725dd867870178fc28fd84b",
+      "rows": 1593140
+    },
+    {
+      "month": "2022-11",
+      "manifest_file": "year=2022/month=11/manifest.json",
+      "manifest_sha256": "7230a7263cd0ad68fdbb22a04cc4844883c4a1ce0fe441b8243b090698f42cc0",
+      "rows": 1279885
+    },
+    {
+      "month": "2022-12",
+      "manifest_file": "year=2022/month=12/manifest.json",
+      "manifest_sha256": "b9243e266e265b40d8ca3b5e452be2d8a02568dd2d36e73fc1593d34ff5845ad",
+      "rows": 1093655
+    },
+    {
+      "month": "2023-01",
+      "manifest_file": "year=2023/month=01/manifest.json",
+      "manifest_sha256": "ea39d6ca8eea67e3edca442a8768b9da1c4d4e8e2b1a82fba6128d1bf651ecc8",
+      "rows": 1380038
+    },
+    {
+      "month": "2023-02",
+      "manifest_file": "year=2023/month=02/manifest.json",
+      "manifest_sha256": "117652804189ecaee1e8ae4d3f850b4b21f6affcdfd3558528de8e9b26cf8cc4",
+      "rows": 1472928
+    },
+    {
+      "month": "2023-03",
+      "manifest_file": "year=2023/month=03/manifest.json",
+      "manifest_sha256": "f06e71663a9b8e830267233f321701fdfe5368d959a45c6e24b345701f87b009",
+      "rows": 1794731
+    },
+    {
+      "month": "2023-04",
+      "manifest_file": "year=2023/month=04/manifest.json",
+      "manifest_sha256": "3db3d1877fc51428a4b6fb619b9dbda40fb852d2944320a3e7cd2de9c6ab00c3",
+      "rows": 1736117
+    },
+    {
+      "month": "2023-05",
+      "manifest_file": "year=2023/month=05/manifest.json",
+      "manifest_sha256": "3013a53028847744d0ec7c45840ea5caba99fe746d4d15e4e846fa6986edd218",
+      "rows": 1492253
+    },
+    {
+      "month": "2023-06",
+      "manifest_file": "year=2023/month=06/manifest.json",
+      "manifest_sha256": "c07dd80aee89909b8ff5d37a29ace7ef62fc079fe884c16b33c6044a7d6f7bf9",
+      "rows": 1119325
+    },
+    {
+      "month": "2023-07",
+      "manifest_file": "year=2023/month=07/manifest.json",
+      "manifest_sha256": "140ab92695a287ad2f46a328ee7884ec67a71de7a60f194e022fddd936f6043b",
+      "rows": 1667266
+    },
+    {
+      "month": "2023-08",
+      "manifest_file": "year=2023/month=08/manifest.json",
+      "manifest_sha256": "c87c9736f01fd710ca6f44c302fc48d17da2efde441ed47e48023038758fa499",
+      "rows": 1252020
+    },
+    {
+      "month": "2023-09",
+      "manifest_file": "year=2023/month=09/manifest.json",
+      "manifest_sha256": "29eea894c6305aeb037a96897945bbf3bedeeb3d4dfa4fbc772079fe8904cd46",
+      "rows": 974667
+    },
+    {
+      "month": "2023-10",
+      "manifest_file": "year=2023/month=10/manifest.json",
+      "manifest_sha256": "4e162ba125781b529e3bbacf2685b72194623698ecf6e7f64dcb75722d792046",
+      "rows": 1561552
+    },
+    {
+      "month": "2023-11",
+      "manifest_file": "year=2023/month=11/manifest.json",
+      "manifest_sha256": "8f4e3855b16b398f864e196b01a40d6e1a932ad0fd0b30fd4f85a89393c6ee11",
+      "rows": 1381057
+    },
+    {
+      "month": "2023-12",
+      "manifest_file": "year=2023/month=12/manifest.json",
+      "manifest_sha256": "677e447132e77ad1929103ce517d1172108f0d5e512a5016e83f6f9484d869a8",
+      "rows": 1763942
+    },
+    {
+      "month": "2024-01",
+      "manifest_file": "year=2024/month=01/manifest.json",
+      "manifest_sha256": "b0bcfd97bc74b4b3cbb1df38887bcad2d9b1ee025d722c6440c92fb17c5eb965",
+      "rows": 1131025
+    },
+    {
+      "month": "2024-02",
+      "manifest_file": "year=2024/month=02/manifest.json",
+      "manifest_sha256": "45eb8386ddae7b97b6504140c33a2a595e8614f5f499527d2c4309a682801587",
+      "rows": 1243840
+    },
+    {
+      "month": "2024-03",
+      "manifest_file": "year=2024/month=03/manifest.json",
+      "manifest_sha256": "93066bdaee4b6b01e9ddfb76071a0db99a22ff7a6c1d6086aeb620844a31986c",
+      "rows": 1469701
+    },
+    {
+      "month": "2024-04",
+      "manifest_file": "year=2024/month=04/manifest.json",
+      "manifest_sha256": "6b3a5da9081efa5ba5359d59c6bf41092c728e37554eb51007ff2bdd2cd22650",
+      "rows": 1448570
+    },
+    {
+      "month": "2024-05",
+      "manifest_file": "year=2024/month=05/manifest.json",
+      "manifest_sha256": "2ace7aae0c1e9e81738715f0644376ed049ae4fe19b0ed3587ea8288d950f4fe",
+      "rows": 876332
+    },
+    {
+      "month": "2024-06",
+      "manifest_file": "year=2024/month=06/manifest.json",
+      "manifest_sha256": "f4a93a65d7991fc122058fcdf68b4e856ccbe246050a80d2f4228684a729cb99",
+      "rows": 1013161
+    },
+    {
+      "month": "2024-07",
+      "manifest_file": "year=2024/month=07/manifest.json",
+      "manifest_sha256": "542fe77d1a0e682a417e14edc2f0b762698acd3b5038a7b597b9e160d2190a8b",
+      "rows": 1463391
+    },
+    {
+      "month": "2024-08",
+      "manifest_file": "year=2024/month=08/manifest.json",
+      "manifest_sha256": "cf03c983315672e30d037845bc5695f583162985dccd6a01b34e0cbb457272d3",
+      "rows": 1316089
+    },
+    {
+      "month": "2024-09",
+      "manifest_file": "year=2024/month=09/manifest.json",
+      "manifest_sha256": "fa29ecabb0c6b5b677a3a60a21c35fd8ecbefb5ffea788e2a8fb6a1fa283e70e",
+      "rows": 1149304
+    },
+    {
+      "month": "2024-10",
+      "manifest_file": "year=2024/month=10/manifest.json",
+      "manifest_sha256": "3677cca885e8c0d6466a1ac9c3875b17e91388ba5d1c8a058c607ebcef9f0356",
+      "rows": 1294999
+    },
+    {
+      "month": "2024-11",
+      "manifest_file": "year=2024/month=11/manifest.json",
+      "manifest_sha256": "60e5cca33bff109476696c3208248b291560a771d1172bc377c1d7897c6235c7",
+      "rows": 883105
+    },
+    {
+      "month": "2024-12",
+      "manifest_file": "year=2024/month=12/manifest.json",
+      "manifest_sha256": "e32b9a2c5fe0fa8ee95062e61ae8993f6834070c05c2407f28b9dadf56934018",
+      "rows": 1406518
+    },
+    {
+      "month": "2025-01",
+      "manifest_file": "year=2025/month=01/manifest.json",
+      "manifest_sha256": "078309a107852cbb0d6b60ffa3180a5438767eef462c9469c12d45587e622fdb",
+      "rows": 1100051
+    },
+    {
+      "month": "2025-02",
+      "manifest_file": "year=2025/month=02/manifest.json",
+      "manifest_sha256": "6ea4199504702d476aa1063013ef69dd99a85c46b1c05557cc80cdb914f9e92d",
+      "rows": 1160053
+    },
+    {
+      "month": "2025-03",
+      "manifest_file": "year=2025/month=03/manifest.json",
+      "manifest_sha256": "e13746b22bd639dfe756d0ce6338fb9012a45ba627b1fb0e03feefd64aa15fc8",
+      "rows": 1458075
+    },
+    {
+      "month": "2025-04",
+      "manifest_file": "year=2025/month=04/manifest.json",
+      "manifest_sha256": "272ba5c01fef27e1911c0ec567eb4b7f4acd030db0faeaa8db9c7781a2c573f6",
+      "rows": 1305706
+    },
+    {
+      "month": "2025-05",
+      "manifest_file": "year=2025/month=05/manifest.json",
+      "manifest_sha256": "92bcc38fa8c60010b6a06aa675bb53e8b63932dc55484a2f80c89a59ef10da73",
+      "rows": 1113401
+    },
+    {
+      "month": "2025-06",
+      "manifest_file": "year=2025/month=06/manifest.json",
+      "manifest_sha256": "f73cdf2652955fbc16ee8ea366ae6073cec3f0f011f4d65e83f7a2db7941c397",
+      "rows": 1475419
+    },
+    {
+      "month": "2025-07",
+      "manifest_file": "year=2025/month=07/manifest.json",
+      "manifest_sha256": "5606e7620b93fadc9026d2d28f4be979e6db275309d4da398ba858147cfc5507",
+      "rows": 1606126
+    },
+    {
+      "month": "2025-08",
+      "manifest_file": "year=2025/month=08/manifest.json",
+      "manifest_sha256": "86766b14f7234cb6c17af637ec6a14134dcb5d99ad37b4abdc8fe1ab90714196",
+      "rows": 1484394
+    },
+    {
+      "month": "2025-09",
+      "manifest_file": "year=2025/month=09/manifest.json",
+      "manifest_sha256": "8224a93342ecc4296dc7f6ebc1d26f32c4fbc4dc311fac578f8703b9b6103ca3",
+      "rows": 1844319
+    },
+    {
+      "month": "2025-10",
+      "manifest_file": "year=2025/month=10/manifest.json",
+      "manifest_sha256": "be9de0e8dc9eedfcf4934657e098776ea1720450d1dd998cc2cc381814db608d",
+      "rows": 1631673
+    },
+    {
+      "month": "2025-11",
+      "manifest_file": "year=2025/month=11/manifest.json",
+      "manifest_sha256": "4bb112fe7c82cacaec7dca989a5450f9540f8c3cef73a90ccd751543a9251632",
+      "rows": 2028601
+    },
+    {
+      "month": "2025-12",
+      "manifest_file": "year=2025/month=12/manifest.json",
+      "manifest_sha256": "320d6c05a09873ac5076c76b04147c899b7ffd09cd3b68fdb2e415771fe4192b",
+      "rows": 3696112
+    },
+    {
+      "month": "2026-01",
+      "manifest_file": "year=2026/month=01/manifest.json",
+      "manifest_sha256": "e1b4fc11efe5f789e0253031f910a19d3e077e66105ff506624727f21217f3c6",
+      "rows": 3160711
+    },
+    {
+      "month": "2026-02",
+      "manifest_file": "year=2026/month=02/manifest.json",
+      "manifest_sha256": "58deb102515ecdd58aff949f3965060d0a9a43fd224706877f9a34ad937016ca",
+      "rows": 2959410
+    },
+    {
+      "month": "2026-03",
+      "manifest_file": "year=2026/month=03/manifest.json",
+      "manifest_sha256": "1780deba707c019218744c7cacc46225bf18860930ddc4be9880a7ec97692a0f",
+      "rows": 2576532
+    },
+    {
+      "month": "2026-04",
+      "manifest_file": "year=2026/month=04/manifest.json",
+      "manifest_sha256": "4cc4b8ffc905a063ac176a698998f07807f42624e42b16d6e1ca5e81a63fb324",
+      "rows": 2436068
+    },
+    {
+      "month": "2026-05",
+      "manifest_file": "year=2026/month=05/manifest.json",
+      "manifest_sha256": "8442f0991bf1cf06e4b17b71a6c0b051e78a0e85cb84df306843d9793c25efbd",
+      "rows": 1370701
+    },
+    {
+      "month": "2026-06",
+      "manifest_file": "year=2026/month=06/manifest.json",
+      "manifest_sha256": "267bd50ad191c7a668f69c7d2463c92316bffb4b3e7aa77edc56200e5a0d251e",
+      "rows": 1557457
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "prepared-training-code-weights-v1",
+  "description": "complete prepared train/tune/validation tables, retraining code, existing weights",
+  "raw_260_million_event_sources_included": false,
+  "train_rows": 1011240,
+  "train_positive_hours": 56299,
+  "train_years": [
+    2019,
+    2020,
+    2022,
+    2023
+  ],
+  "tune_year": 2024,
+  "validation_year_already_open": 2025,
+  "excluded_year": 2021,
+  "model_sha256": "4e277ddb95df40523c105d51fef3f21fc3151099072346622fcd4c2183febf44",
+  "production_approved": false,
+  "files_sha256": {
+    "model.cbm": "4e277ddb95df40523c105d51fef3f21fc3151099072346622fcd4c2183febf44",
+    "model_metadata.json": "ad711be619e574f32f4e9c2407b9f23439e73e2e2289ba04da3ebcfd3165d1a6",
+    "training_report.json": "8a6efe7d65f893b6fb5b3c417579be8d69c89d13a763add33992f454df77f5fd",
+    "data/manifest.json": "375050e80a17e2836e5efa4a99b79b912c0c970d2744c9607b8b73c2d5a89742",
+    "source_manifests/q2/manifest.json": "c9775a94bfcff09d1c641b010b93d62e9927209017ccbc7346749f78525de619",
+    "source_manifests/q3/manifest.json": "294d8d3a4cadb640737ec39f7adef2c8d344fcd8d4398724fcb779ebabcdf4db",
+    "source_manifests/b3/manifest.json": "f5bf90b3f5878a749e12d1cfd7f36b843c6e97d38f2c033c1af1f6672d9332f9",
+    "source_manifests/q3_verification.json": "c86cd6de7feae714197de52c3e696f6a3701bf849714dc53d21a25465982db2a",
+    "reference/engineered_episode.cbm": "b195377c5d1daac7cd5ce00ec8c1f81448242c91ad1d446f1d68dcf83751f8f8",
+    "reference/selection.json": "06c68a77074fa5c536212319ad20be46c2e3aa4d3a1b997ce330a3be1f8b4c09",
+    "ml/service_candidate/__init__.py": "b5f5591e8aedff48a4837a869c246e82aa7622060ec106220ee4c6b3f4f7f8cb",
+    "ml/service_candidate/features.py": "27462e236a6e40242c54d494cb4ca963ad144a395da086ff1920f8ddd70c5d4c",
+    "ml/service_candidate/loader.py": "ddc2d70488c61768dc9144e9a25a2703ca395a39538f905ef918b6a34da8bee9",
+    "ml/service_candidate/train.py": "cbdbf5c04e3b2dc42ee4abbc7fef54fa28c8547eaa04d66c172ea6b35e486652",
+    "ml/service_candidate/training_bundle.py": "9273e8df978c09256f93ec4b77e5599c30dd63d3e5813cd63125afaf4cd61400",
+    "ml/service_candidate/retrain_bundle.py": "74cafbba430303276d1d817288d07aa8879f7e3527609426c9cf75ff823015b0",
+    "ml/service_candidate/test_service_candidate.py": "96f935acc75fb7161ac977ddbd466167f98e07db443fa642a3d8050b67fe4dd4",
+    "ml/service_candidate/README.md": "13174eb61843c5ea41faab8fed12b8aa93ced73501ae0c4b72ebb6ca86f27bba",
+    "ml/service_candidate/requirements.txt": "d09e8c0644a68ef0c97f67e8642e982236d7dfedded38cdc5f569dda67c6bf6c",
+    "data/train.parquet": "a0548541d07b48bc02041140c6b475f83ff2ac662deb472db752aa0b7b7db60b",
+    "data/tune.parquet": "7bcbd08a1c40838301940cc0cc2553192330f14877223758296cb45db3f660be",
+    "data/validation.parquet": "7506ab4a814beb82be6fa1e427ca0a5a569fd6b5f64857cb454f5402743fcd2f"
+  }
+}
