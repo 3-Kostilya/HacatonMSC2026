@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    container_name: hacaton-backend
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./backend/data:/workspace/backend/data
+
+    environment:
+      DATA_DIR: data
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+
+    restart: unless-stopped
+
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    container_name: hacaton-frontend
+
+    ports:
+      - "5173:80"
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped
