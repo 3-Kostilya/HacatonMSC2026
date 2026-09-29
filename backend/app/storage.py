@@ -57,6 +57,8 @@ _BOOL_COLUMNS = {
     "threshold_crossed",
     "shadow_warning",
     "automatic_action_taken",
+    "round7_passes_common_gates",
+    "round7_passes_standard_gates",
 }
 
 _NUMERIC_COLUMNS = {
@@ -72,6 +74,9 @@ _NUMERIC_COLUMNS = {
     "technical_message_count_24h",
     "research_score",
     "rows_count",
+    "round7_score_linear",
+    "round7_score_tree",
+    "round7_score_specialist",
 }
 
 
@@ -407,8 +412,6 @@ class ParquetStore:
                 raise ValueError(f"forecasts missing columns: {', '.join(sorted(missing))}")
             if "threshold" not in df.columns:
                 df["threshold"] = R6_THRESHOLD
-            else:
-                df["threshold"] = df["threshold"].fillna(R6_THRESHOLD)
             normalized = self._normalize(df, FORECAST_COLUMNS)
             normalized = normalized[normalized["channel_id"].notna() & normalized["prediction_time"].notna()]
             count = self._append_part(FORECASTS_DIR, normalized, FORECAST_COLUMNS)

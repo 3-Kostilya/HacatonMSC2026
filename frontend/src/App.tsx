@@ -390,9 +390,9 @@ function App() {
   const r6Result = !r6Available
     ? "Недоступен"
     : currentThresholdCrossed === true
-      ? "Порог превышен"
+      ? "Ворота пройдены"
       : currentThresholdCrossed === false
-        ? "Порог не превышен"
+        ? "Ворота не пройдены"
         : "Нет решения";
 
   const r6ResultClass = !r6Available
@@ -404,10 +404,10 @@ function App() {
         : "forecast-result unknown";
 
   const systemDecision = currentWarning
-    ? "Теневой сигнал"
+    ? "Предупреждение Round 7"
     : currentPredictionStatus !== "scored"
       ? "Без прогноза"
-      : "Порог не достигнут";
+      : "Допуск не пройден";
 
   const systemDecisionClass = currentWarning
     ? "decision-badge warning"
@@ -478,7 +478,7 @@ function App() {
           <strong>{summary?.registeredFaults ?? "—"}</strong>
         </article>
         <article className="summary-card">
-          <span>Теневые сигналы</span>
+          <span>Предупреждения Round 7</span>
           <strong>{summary?.warnings ?? "—"}</strong>
         </article>
         <article className="summary-card">
@@ -508,7 +508,7 @@ function App() {
           <div className="filters">
             <button className={filter === "all" ? "filter active" : "filter"} onClick={() => void changeFilter("all")}>Все</button>
             <button className={filter === "failed" ? "filter active" : "filter"} onClick={() => void changeFilter("failed")}>«Неисправен»</button>
-            <button className={filter === "warning" ? "filter active" : "filter"} onClick={() => void changeFilter("warning")}>Теневые сигналы</button>
+            <button className={filter === "warning" ? "filter active" : "filter"} onClick={() => void changeFilter("warning")}>Предупреждения Round 7</button>
           </div>
 
           <div className="sensor-list">
@@ -542,11 +542,11 @@ function App() {
 
                     <div className="sensor-signals">
                       {sensor.warning ? (
-                        <span className="signal warning">Теневой сигнал</span>
+                        <span className="signal warning">Предупреждение Round 7</span>
                       ) : noForecast ? (
                         <span className="signal unavailable">Без прогноза</span>
                       ) : (
-                        <span className="signal neutral">Порог не достигнут</span>
+                        <span className="signal neutral">Допуск не пройден</span>
                       )}
                     </div>
                   </button>
@@ -599,8 +599,8 @@ function App() {
               <article className="risk-card">
                 <div className="risk-header">
                   <div>
-                    <span className="eyebrow">Исследовательский ML-балл на 24 часа</span>
-                    <h3>CatBoost</h3>
+                  <span className="eyebrow">Оценка Round 7 на 24 часа</span>
+                    <h3>Frozen ensemble</h3>
                   </div>
                   <strong className="risk-value">{scoreText(currentResearchScore, 3)}</strong>
                 </div>
@@ -636,11 +636,11 @@ function App() {
               <article className="analysis-card">
                 <div className="section-title">
                   <div>
-                    <span className="eyebrow">Теневой контрольный сигнал</span>
-                    <h3>Индекс R6 по истории событий</h3>
+                    <span className="eyebrow">Контрольные ворота Round 7</span>
+                    <h3>Статический допуск модели</h3>
                   </div>
                   <span className={currentWarning ? "signal warning" : "signal neutral"}>
-                    {currentWarning ? "Теневой сигнал" : "Порог не достигнут"}
+                    {currentWarning ? "Предупреждение Round 7" : "Допуск не пройден"}
                   </span>
                 </div>
 

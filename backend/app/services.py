@@ -173,12 +173,14 @@ def _warning_active(forecast: dict[str, Any] | None) -> bool | None:
     if shadow is True:
         return True
 
-    # ``run_precomputed`` cannot reconstruct persisted shadow/cooldown state,
-    # so it records a preview crossing explicitly. In that one case the UI's
-    # "Предупреждения" bucket represents the crossed frozen R6 threshold.
+    # A stored Round 7 gate pass is a record-only warning. It is visible in the
+    # UI, but it never triggers an external or automatic action.
     reason = _text(forecast.get("warning_reason"))
     crossed = _clean(forecast.get("threshold_crossed"))
-    if reason == "threshold_crossed_preview_only" and crossed is True:
+    if reason in {
+        "threshold_crossed_preview_only",
+        "round7_gates_passed_record_only",
+    } and crossed is True:
         return True
 
     return False
@@ -225,14 +227,17 @@ def _frontend_prediction_status(forecast: dict[str, Any] | None) -> str:
 def _compat_risk_index(forecast: dict[str, Any] | None) -> float | None:
     """Old frontend expects 0..1 riskScore.
 
-    The current R6 score is NOT a probability. For backward compatibility we
-    expose score/threshold clipped to 0..1 as a threshold index. New UI should
-    display ruleScore + threshold instead.
+    Scores are not probabilities. For backward compatibility we expose a
+    clipped index; Round 7 uses one as its display denominator because it has
+    no single operational threshold.
     """
     if not forecast:
         return None
     score = _clean(forecast.get("rule_score"))
-    threshold = _clean(forecast.get("threshold")) or R6_THRESHOLD
+    threshold = _clean(forecast.get("threshold"))
+    if threshold is None and _text(forecast.get("policy_version")).startswith("round7-"):
+        threshold = 1.0
+    threshold = threshold or R6_THRESHOLD
     if score is None or not threshold:
         return None
     try:
@@ -262,14 +267,14 @@ def _risk_factors(store: ParquetStore, forecast: dict[str, Any] | None, episode:
         if unavailable:
             factors.append(f"Прогноз недоступен: {unavailable}")
 
-        # The trained CatBoost bundle is a research model. Its score is kept
-        # separate from R6 and is never presented as a failure probability.
+        # The Round 7 bundle is a research model. Its score is kept separate
+        # from operational state and is never presented as a failure probability.
         research_score = _clean(forecast.get("research_score"))
         if research_score is not None:
             try:
                 rendered = f"{float(research_score):.3f}".replace(".", ",")
                 factors.append(
-                    f"Исследовательская ML-оценка CatBoost: {rendered} (не вероятность)"
+                    f"Исследовательская оценка Round 7: {rendered} (не вероятность)"
                 )
             except (TypeError, ValueError):
                 pass
@@ -338,7 +343,10 @@ def build_sensor_view(store: ParquetStore) -> list[dict[str, Any]]:
         )
 
         threshold = _clean(forecast.get("threshold") if forecast else None)
-        threshold = float(threshold) if threshold is not None else (R6_THRESHOLD if forecast else None)
+        policy = _text(forecast.get("policy_version")) if forecast else ""
+        threshold = float(threshold) if threshold is not None else (
+            None if policy.startswith("round7-") else R6_THRESHOLD
+        )
 
         rule_score = _clean(forecast.get("rule_score") if forecast else None)
         rule_score = float(rule_score) if rule_score is not None else None

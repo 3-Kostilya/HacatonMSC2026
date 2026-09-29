@@ -22,7 +22,6 @@ from app.config import (
     PROJECT_ROOT,
     RAW_RUNS_DIR,
     REFERENCE_DIR,
-    RUNTIME_MODEL_DIR,
 )
 from app.live_inference import score_channels
 from app.storage import ParquetStore
@@ -30,9 +29,9 @@ from app.storage import ParquetStore
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from stage1.ingestion.dictionaries import load_dictionaries  # noqa: E402
-from stage1.ingestion.pipeline import run_ingestion  # noqa: E402
-from ml.service_candidate.loader import ResearchRiskModel  # noqa: E402
+from ml.experimental_round7 import Round7ResearchModels
+from stage1.ingestion.dictionaries import load_dictionaries
+from stage1.ingestion.pipeline import run_ingestion
 
 RAW_ALLOWED_SUFFIXES = {".csv", ".7z"}
 REFERENCE_ALLOWED_SUFFIXES = {".csv"}
@@ -80,21 +79,18 @@ def get_status(batch_id: str) -> dict[str, Any] | None:
 
 
 def bootstrap_runtime_assets() -> dict[str, bool]:
-    """Check the pinned runtime model and explicitly supplied references.
+    """Check the pinned Round 7 runtime bundle and supplied references.
 
     Never discover arbitrary CSVs or model bundles: repository fixtures and
     research artifacts must not silently become operational inputs.
     """
 
     model_ready = False
-    if (RUNTIME_MODEL_DIR / "model.cbm").is_file() and (
-        RUNTIME_MODEL_DIR / "model_metadata.json"
-    ).is_file():
-        try:
-            ResearchRiskModel(RUNTIME_MODEL_DIR)
-            model_ready = True
-        except (ValueError, KeyError, OSError):
-            model_ready = False
+    try:
+        Round7ResearchModels()
+        model_ready = True
+    except (ValueError, KeyError, OSError):
+        model_ready = False
 
     return {
         "modelReady": model_ready,

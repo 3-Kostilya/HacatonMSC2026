@@ -23,13 +23,13 @@ export interface SensorListItem {
   warning: boolean | null;
   predictionStatus: PredictionStatus;
 
-  // Операционное правило R6.
+  // Балл Round 7 и результат статических ворот.
   ruleScore: number | null;
   threshold: number | null;
   thresholdCrossed: boolean | null;
   mlPredictionStatus: string | null;
 
-  // Итоговая исследовательская CatBoost-модель.
+  // Итоговая исследовательская оценка Round 7.
   // Score не трактуется как вероятность физической поломки.
   researchScore: number | null;
   researchPredictionStatus: string | null;

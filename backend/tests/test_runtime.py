@@ -88,6 +88,9 @@ class RuntimeSmokeTest(unittest.TestCase):
         self.assertEqual(sensors.json()[0]["id"], "smoke-1")
         self.assertEqual(sensors.json()[0]["predictionStatus"], "scored")
         self.assertIsNotNone(sensors.json()[0]["researchScore"])
+        forecast = self.client.get("/api/sensors/smoke-1/assessment").json()
+        self.assertEqual(forecast["policyVersion"], "round7-raw-upload-v1")
+        self.assertEqual(forecast["predictionTime"], "2025-01-08T23:00:00")
 
 
 if __name__ == "__main__":
